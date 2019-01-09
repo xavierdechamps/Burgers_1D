@@ -74,7 +74,6 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
 %  save(filename,'uu');
 
   nbrPointsStatistics=0;
-  %energieMoy=0;
 
   spectralEnergy=zeros(Ninterpolation*N,1);
   reference_spectrum=load(file_spectrum);
@@ -158,9 +157,9 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
     z=z+1;
   
     CFL=u(:,end)*deltat/h;
-    % Condition de non-divergence par la methode de Runge-Kutta 4
+% Stability criterion for explicit Runge Kutta 4
     if (max(CFL)>2.8)
-        disp(strcat('Divergence de ',name));
+        disp(strcat('Divergence of ',name));
         break;
     end
   end

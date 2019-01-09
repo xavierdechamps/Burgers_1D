@@ -54,7 +54,7 @@ function FE_HermiteP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
 % Random solution for turbulent flow
   u(:,1)=2*rand(2*N,1)-1;
 % Sinus solution for non-forced Burgers equation
-  %u(1:2:2*N,1)=sin(X(:) * 2*pi/L) ; u(2:2:2*N,1)=2*pi/L*cos(X(:) * 2*pi/L) ;
+%  u(1:2:2*N,1)=sin(X(:) * 2*pi/L) ; u(2:2:2*N,1)=2*pi/L*cos(X(:) * 2*pi/L) ;
   
   timeBeforeStatistics = 10;
   
