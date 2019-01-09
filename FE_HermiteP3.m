@@ -1,4 +1,4 @@
-function FE_HermiteP3(N,nu,constant_sub,L,duree,nbrpointtemp,Ninterpolation,name,file_spectrum)
+function FE_HermiteP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,file_spectrum)
 % Solve the 1D forced Burgers equation with cubic Hermite elements 
 % The unknowns are the velocity and the first spatial derivative of the velocity, thus 2 unknowns per node
 %
@@ -15,9 +15,9 @@ function FE_HermiteP3(N,nu,constant_sub,L,duree,nbrpointtemp,Ninterpolation,name
   X  = zeros(N,1);
   X = linspace(0,L,N)';
   nbrpointtime=nbrpointtemp;
-  deltat=duree/nbrpointtime;
+  deltat=time/nbrpointtime;
 
-  % ******** Mass Mij and rigidity Kij matrices *************
+% ******** Mass Mij and rigidity Kij matrices *************
   Mij=h/35*[  13     11*h/6    9/2   -13*h/12  ;
              11*h/6   h*h/3   13*h/12  -h*h/4    ;
              9/2      13*h/12   13    -11*h/6;
@@ -50,7 +50,7 @@ function FE_HermiteP3(N,nu,constant_sub,L,duree,nbrpointtemp,Ninterpolation,name
   K(1:2,1:2)             = K(1:2,1:2)             + Kij(3:4,3:4);
   K(1:2,2*N-1:2*N)       = K(1:2,2*N-1:2*N)       + Kij(3:4,1:2);
 
-  % ************* Initial condition on the solution ************************
+% ************* Initial condition on the solution ************************
 % Random solution for turbulent flow
   u(:,1)=2*rand(2*N,1)-1;
 % Sinus solution for non-forced Burgers equation
@@ -59,7 +59,7 @@ function FE_HermiteP3(N,nu,constant_sub,L,duree,nbrpointtemp,Ninterpolation,name
   timeBeforeStatistics = 10;
   
   j=2;  z=2;  ind_error=1;
-  filename=strcat(name,num2str(1),'.mat');
+  filename=[name,num2str(1),'.mat'];
   uu=u(:,1);
 %save(filename,'uu');
 
@@ -101,7 +101,7 @@ function FE_HermiteP3(N,nu,constant_sub,L,duree,nbrpointtemp,Ninterpolation,name
         
         if (nbrPointsStatistics > 0)
            disp(strcat(num2str(100*i/(nbrpointtime+1) ),' % done - Statistics are stored' ))
-           filename2=['Energie_Spectrale_',name,'.mat']; spectralEnergyOut = spectralEnergy(1:N)/nbrPointsStatistics; save(filename2,'spectralEnergyOut');
+%           filename2=['Spectral_energy_',name,'.mat']; spectralEnergyOut = spectralEnergy(1:N)/nbrPointsStatistics; save(filename2,'spectralEnergyOut');
         else
            disp(strcat(num2str(100*i/(nbrpointtime+1) ),' % done' ))
         end
