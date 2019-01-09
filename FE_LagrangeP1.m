@@ -1,6 +1,6 @@
 function FE_LagrangeP1(N,nu,constant_sub,L,time,nbrpointtemp,name,file_spectrum)
 % Solve the 1D forced Burgers equation with cubic Hermite elements 
-% The unknowns are the velocity and the first spatial derivative of the velocity, thus 2 unknowns per node
+% The unknown of the equation is the velocity, thus 1 unknown per node
 %
 % du     du     d2u
 % --  + u-- = nu--- + F
@@ -49,9 +49,9 @@ function FE_LagrangeP1(N,nu,constant_sub,L,time,nbrpointtemp,name,file_spectrum)
   j=2;   z=2;  ind_error = 1;
   filename=[name,num2str(1),'.mat'];
   uu=u(:,1);
-  %save(filename,'uu');
+%  save(filename,'uu');
   
-  kinEnergy     = zeros(1:nbrpointtime+1,1);
+  kinEnergy    = zeros(1:nbrpointtime+1,1);
   kinEnergy(1) = get_kinematic_energy(h,DG,u(:,1),N,1);
   nbrPointsStatistics=0;  kinEnergyMean=0;
   

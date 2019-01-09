@@ -32,6 +32,7 @@ function y = RK4_FE_Lagrangep1 (u,deltat,N,M,k,nu,F,constant_sub)
   Cj = Cj - constant_sub * ( abs(Un(ind(:,3))-Un(ind(:,2))).*(Un(ind(:,3))-Un(ind(:,2))) - abs(Un(ind(:,2))-Un(ind(:,1))).*(Un(ind(:,2))-Un(ind(:,1))) );
   k1 = - M \ (nu*k*Un + Cj);
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   Un2 = Un + deltat*half*k1;
 % nonlinear terms
   Cj  = sixth * ( Un2(ind(:,3)) .* ( Un2(ind(:,2)) + Un2(ind(:,3)) ) - Un2(ind(:,1)) .* ( Un2(ind(:,2)) + Un2(ind(:,1)) ) );
@@ -39,6 +40,7 @@ function y = RK4_FE_Lagrangep1 (u,deltat,N,M,k,nu,F,constant_sub)
   Cj = Cj - constant_sub * ( abs(Un2(ind(:,3))-Un2(ind(:,2))).*(Un2(ind(:,3))-Un2(ind(:,2))) - abs(Un2(ind(:,2))-Un2(ind(:,1))).*(Un2(ind(:,2))-Un2(ind(:,1))) );
   k2 = - M \ (nu*k*Un2 + Cj);
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   Un3 = Un + deltat*half*k2;
 % nonlinear terms
   Cj  = sixth * ( Un3(ind(:,3)) .* ( Un3(ind(:,2)) + Un3(ind(:,3)) ) - Un3(ind(:,1)) .* ( Un3(ind(:,2)) + Un3(ind(:,1)) ) );
@@ -46,6 +48,7 @@ function y = RK4_FE_Lagrangep1 (u,deltat,N,M,k,nu,F,constant_sub)
   Cj = Cj - constant_sub * ( abs(Un3(ind(:,3))-Un3(ind(:,2))).*(Un3(ind(:,3))-Un3(ind(:,2))) - abs(Un3(ind(:,2))-Un3(ind(:,1))).*(Un3(ind(:,2))-Un3(ind(:,1))) );
   k3 = - M \ (nu*k*Un3 + Cj);
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   Un4 = Un + deltat*k3;
 % nonlinear terms
   Cj  = sixth * ( Un4(ind(:,3)) .* ( Un4(ind(:,2)) + Un4(ind(:,3)) ) - Un4(ind(:,1)) .* ( Un4(ind(:,2)) + Un4(ind(:,1)) ) );
@@ -53,5 +56,6 @@ function y = RK4_FE_Lagrangep1 (u,deltat,N,M,k,nu,F,constant_sub)
   Cj = Cj - constant_sub * ( abs(Un4(ind(:,3))-Un4(ind(:,2))).*(Un4(ind(:,3))-Un4(ind(:,2))) - abs(Un4(ind(:,2))-Un4(ind(:,1))).*(Un4(ind(:,2))-Un4(ind(:,1))) );
   k4 = - M \ (nu*k*Un4 + Cj);
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   y = Un + deltat*sixth*(k1 + 2*k2 + 2*k3 +k4 ) + F;
 end
