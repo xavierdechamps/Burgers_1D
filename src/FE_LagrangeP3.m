@@ -109,7 +109,7 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
 %    distance_sinus(i,1:4) = [(i-1)*deltat maxU minU X(minInd)-X(maxInd)];
     
 % Save the results, free some memory and show the results
-    if ( mod( (i-1)*deltat , 0.1) == 0)
+    if ( mod(z/nbrpointtime,0.1) == 0)
         uu=u(:,end);
 %        filename=[name,num2str(j),'.mat']; save(filename,'uu'); j=j+1;
         clear u;
@@ -129,7 +129,7 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
                 
           subplot(2,2,1);
           Uinterpolated = Interpolation(u(:,end),h,N,2,Ninterpolation);% Interpolate within each element to show internal oscillations
-          plot(0:1/(length(Uinterpolated)):1,[Uinterpolated;Uinterpolated(1)],'b');
+          plot(0:1/(length(Uinterpolated)):1,[Uinterpolated;Uinterpolated(1)],'b','Linewidth',3);
           grid on; xlabel('x/(2*\pi)'); ylabel('u(t)');
           title(strcat('Time= ',num2str((i-1)*deltat),', Re= ',num2str(mean(uu)*L/nu)));
 %          hold on
@@ -149,7 +149,7 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
 %          grid on; xlabel('Time'); ylabel('E(t)')
          
           subplot(1,2,2);
-          loglog(0:((length_vec+1)/2-1),spectralEnergy(1:((length_vec+1)/2))/nbrPointsStatistics, reference_spectrum(:,1),reference_spectrum(:,2));
+          loglog(0:((length_vec+1)/2-1),spectralEnergy(1:((length_vec+1)/2))/nbrPointsStatistics,'r','Linewidth',3, reference_spectrum(:,1),reference_spectrum(:,2),'b','Linewidth',3);
           grid on; xlabel('k'); ylabel('E(k)');
         
           drawnow;

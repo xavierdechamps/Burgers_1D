@@ -8,4 +8,9 @@ The implemented finite element methods are:
   * cubic Hermite element
   * 5th order Hermite element
   
+The implemented finite difference schemes are
+  * energy conservative second order centered scheme
+  * energy conservative fourth order centered scheme
+  * energy conservative compact schemes with spectral-like resolution
+  
 The energy spectrum is computed and compared with a reference spectrum from a pseudo-spectral code.

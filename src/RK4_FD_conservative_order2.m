@@ -97,6 +97,8 @@ function y = RK4_FD_conservative_order2 (u,deltat,N,K,F,h,constant_sub)
 	C(1,N) = diagm1(1,1);
 
 	k4=(K+C)*Un4;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	y = Un + deltat*sixth*(k1 + 2*k2 + 2*k3 +k4 ) +F;
 	
 end

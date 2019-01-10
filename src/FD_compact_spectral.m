@@ -131,7 +131,7 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
         end
         
         subplot(2,2,1);
-        plot(X/L, uu)
+        plot(X/L, uu,'Linewidth',3)
         grid on; xlabel('x/(2*\pi)'); ylabel('u(t)')
         title(strcat('Time= ',num2str((i-1)*deltat),', Re= ',num2str(mean(uu)*L/nu)))
         
@@ -143,15 +143,15 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
 %        ind_error = ind_error + 1;
         
         subplot(2,2,3)
-        plot((0:(i-1))*deltat,kinEnergy(1:i))
+        plot((0:(i-1))*deltat,kinEnergy(1:i),'Linewidth',3)
         grid on; xlabel('Time'); ylabel('E(t)')
          
         subplot(2,2,2)
-        loglog(0:(N/2-1),spectralEnergy(1:(N/2))/nbrPointsStatistics, reference_spectrum(:,1),reference_spectrum(:,2))
+        loglog(0:(N/2-1),spectralEnergy(1:(N/2))/nbrPointsStatistics,'r','Linewidth',3, reference_spectrum(:,1),reference_spectrum(:,2),'b','Linewidth',3)
         grid on; xlabel('k'); ylabel('E(k)')
         
         subplot(2,2,4)
-        plot((0:(i-1))*deltat,energy_conv(1:i),'b')
+        plot((0:(i-1))*deltat,energy_conv(1:i),'b','Linewidth',3)
         grid on; xlabel('Time'); ylabel('E_{prod}(t)')
             
         drawnow;

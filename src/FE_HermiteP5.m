@@ -98,7 +98,7 @@ function FE_HermiteP5(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
     end
     
 % Save the results, free some memory and show the results
-    if ( mod( (i-1)*deltat , 0.1) == 0)
+    if ( mod(z/nbrpointtime,0.1) == 0)
         uu=u(:,end);
 %        filename=[name,num2str(j),'.mat']; save(filename,'uu'); j=j+1;
         clear u;
@@ -114,7 +114,7 @@ function FE_HermiteP5(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
       
         Uinterpolated = Interpolation(u(:,end),h,N,3,Ninterpolation);% Interpolate within each element to show internal oscillations
         subplot(2,2,1)
-        plot(0:1/(length(Uinterpolated)):1,[Uinterpolated;Uinterpolated(1)],'b')
+        plot(0:1/(length(Uinterpolated)):1,[Uinterpolated;Uinterpolated(1)],'b','Linewidth',3)
         title(strcat('Time= ',num2str((i-1)*deltat),', Re= ',num2str(mean(Uinterpolated)*L/nu)))
         xlabel('x/(2*\pi)'); ylabel('u(t)'); grid on
 
@@ -130,7 +130,7 @@ function FE_HermiteP5(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
 %        ind_error = ind_error + 1;
               
         subplot(1,2,2)
-        loglog(0:N-1,spectralEnergy(1:N)/nbrPointsStatistics, reference_spectrum(:,1),reference_spectrum(:,2))
+        loglog(0:N-1,spectralEnergy(1:N)/nbrPointsStatistics,'r','Linewidth',3, reference_spectrum(:,1),reference_spectrum(:,2),'b','Linewidth',3)
         grid on; xlabel('k'); ylabel('E(k)')
 
         drawnow

@@ -87,7 +87,7 @@ function FE_LagrangeP1(N,nu,constant_sub,L,time,nbrpointtemp,name,file_spectrum)
   %    distance_sinus(i,1:4) = [(i-1)*deltat maxU minU X(minInd)-X(maxInd)];
     
 % Save the results, free some memory and show the results
-    if ( mod( (i-1)*deltat , 0.1) == 0)
+    if ( mod(z/nbrpointtime,0.1) == 0)
         uu=u(:,end);
 %        filename=[name,num2str(j),'.mat']; save(filename,'uu'); j=j+1;
         clear u;
@@ -108,7 +108,7 @@ function FE_LagrangeP1(N,nu,constant_sub,L,time,nbrpointtemp,name,file_spectrum)
 %        disp(strcat("Max at x=",num2str(X(maxInd)), " and min at x=",num2str(X(minInd))," and distance=",num2str(distance_sinus(i,4))));
         
         subplot(2,2,1)
-        plot([X; X(end)+h]/L,[uu; uu(1)])
+        plot([X; X(end)+h]/L,[uu; uu(1)],'b','Linewidth',3)
         grid on; xlabel('x/(2*\pi)'); ylabel('u(t)')
         title(strcat('Time= ',num2str((i-1)*deltat),', Re= ',num2str(mean(uu)*L/nu)))
                 
@@ -120,11 +120,11 @@ function FE_LagrangeP1(N,nu,constant_sub,L,time,nbrpointtemp,name,file_spectrum)
 %        ind_error = ind_error + 1;
       
         subplot(2,2,3);
-        plot((1:i)*deltat,kinEnergy(1:i));
+        plot((1:i)*deltat,kinEnergy(1:i),'b','Linewidth',3);
         grid on; xlabel('Time'); ylabel('E(t)');
                         
         subplot(2,2,2);
-        loglog(0:(N/2-1),spectralEnergy(1:(N/2))/nbrPointsStatistics, reference_spectrum(:,1),reference_spectrum(:,2));
+        loglog(0:(N/2-1),spectralEnergy(1:(N/2))/nbrPointsStatistics,'r','Linewidth',3, reference_spectrum(:,1),reference_spectrum(:,2),'b','Linewidth',3);
         grid on; xlabel('k'); ylabel('E(k)');
         
         drawnow;
