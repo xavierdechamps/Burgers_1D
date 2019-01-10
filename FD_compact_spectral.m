@@ -13,7 +13,7 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
   h = L/(N);% Length of the elements
   X = linspace(0,L,N)';
   nbrpointtime = nbrpointtemp;
-  deltat           = time / nbrpointtime;
+  deltat       = time / nbrpointtime;
 
 % ************* Initial condition on the solution ************************
 % Random solution for turbulent flow
