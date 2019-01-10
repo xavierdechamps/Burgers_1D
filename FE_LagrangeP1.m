@@ -78,8 +78,8 @@ function FE_LagrangeP1(N,nu,constant_sub,L,time,nbrpointtemp,name,file_spectrum)
     if (i*deltat>=timeBeforeStatistics)
 %      kinEnergyMean = kinEnergyMean*nbrPointsStatistics/(nbrPointsStatistics+1) + kinEnergy(i)/(nbrPointsStatistics+1);
       fft_u = fft(u(:,end));
-      nlleEnergieSpect = fft_u.*conj(fft_u)/N/N;
-      spectralEnergy = spectralEnergy + 2*pi*nlleEnergieSpect;
+      newSpectralEnergy = fft_u.*conj(fft_u)/N/N;
+      spectralEnergy = spectralEnergy + 2*pi*newSpectralEnergy;
       nbrPointsStatistics = nbrPointsStatistics + 1;
     end
     
@@ -100,7 +100,7 @@ function FE_LagrangeP1(N,nu,constant_sub,L,time,nbrpointtemp,name,file_spectrum)
         
         if (nbrPointsStatistics > 0)
            disp(strcat(num2str(100*i/(nbrpointtime+1) ),' % done - Statistics are stored' ))
-%           filename2=['Spectral_energy_',name,'.mat']; energieSpectraleOut = spectralEnergy(1:(N/2))/nbrPointsStatistics; save(filename2,'energieSpectraleOut');
+%           filename2=['Spectral_energy_',name,'.mat']; spectralEnergyOut = spectralEnergy(1:(N/2))/nbrPointsStatistics; save(filename2,'spectralEnergyOut');
         else
            disp(strcat(num2str(100*i/(nbrpointtime+1) ),' % done' ))
         end
@@ -141,15 +141,15 @@ function FE_LagrangeP1(N,nu,constant_sub,L,time,nbrpointtemp,name,file_spectrum)
 
   %relative_error
 
-  energieSpectraleOut = spectralEnergy(1:(N/2))/nbrPointsStatistics;
+  spectralEnergyOut = spectralEnergy(1:(N/2))/nbrPointsStatistics;
   filename2=strcat('Energie_Spectrale_',name,'.mat');
-  save(filename2,'energieSpectraleOut');
+  save(filename2,'spectralEnergyOut');
 
 %  tosave = [X u(:,end)];
 %  save(strcat(name,'.mat'),'tosave');
         
 %  save(strcat(name,'_distance_sinus.mat'),'distance_sinus');
 
-%  filename=strcat('Energie_',name,'.mat');
+%  filename=strcat('Energy_',name,'.mat');
 %  save(filename,'kinEnergy');
 end
