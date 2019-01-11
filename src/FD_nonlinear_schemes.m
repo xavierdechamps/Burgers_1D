@@ -91,8 +91,8 @@ function FD_nonlinear_schemes (N,nu,constant_sub,L,time,nbrpointtemp,name,file_s
 %    F = 0;
     
 %******** Call Runge-Kutta and compute kinematic energy ********
-%    u(:,z) = RK4_FD_DFD (u(:,z-1),deltat,N,K,F,h,constant_sub);
-    u(:,z) = RK4_FD_upwind_order1 (u(:,z-1),deltat,N,K,F,h,constant_sub);
+    u(:,z) = RK4_FD_DFD (u(:,z-1),deltat,N,K,F,h,constant_sub);
+%    u(:,z) = RK4_FD_upwind_order1 (u(:,z-1),deltat,N,K,F,h,constant_sub);
 %    u(:,z) = RK4_FD_upwind_order2 (u(:,z-1),deltat,N,K,F,h,constant_sub);
 %    u(:,z) = RK4_FD_upwind_order3 (u(:,z-1),deltat,N,K,F,h,constant_sub);
 %    u(:,z) = RK4_FD_WENO5 (u(:,z-1),deltat,N,K,F,h,constant_sub);

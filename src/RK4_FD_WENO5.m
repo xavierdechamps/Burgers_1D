@@ -56,8 +56,14 @@ end
 
 %---------------------------------------------------------------------------------------------------------------
 function C   = get_non_linear_WENO5(u,i,N,h)
+%%%%%%%%%%%%%%%%%%%%%% WARNING 
+% This definition is based on the divergence form -> not energy conservative -> not good!
+% The implementation of the skew-symmetric form will follow soon...
+%%%%%%%%%%%%%%%%%%%%%% 
+
 % i = i-3  i-2  i-1  i  i+1  i+2  i+3
 %      1    2    3   4   5    6    7
+
   C = zeros(N,1);
   epsi = 1e-6;
   

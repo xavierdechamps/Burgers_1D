@@ -30,26 +30,25 @@ function y = RK4_FD_DFD (u,deltat,N,K,F,h,constant_sub)
   ind(N-1,:) = [N-4 N-3 N-2 N-1 N   1 2];
   ind(N,:)   = [N-3 N-2 N-1 N   1   2 3];
 
-  f = 0.2;
-  one_over_h = 0.25/(h);
+  f = 0.21 ;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Second step
-  C = - get_nonlinear_term(Un,ind,f) * one_over_h ;
+  C = - get_nonlinear_term(Un,ind,f,h) ;
   k1  = K * Un + C;
   Un2 = Un + deltat * 0.5 * k1;
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Third step
-  C = - get_nonlinear_term(Un2,ind,f) * one_over_h ;
+  C = - get_nonlinear_term(Un2,ind,f,h) ;
   k2  = K * Un2 + C;
   Un3 = Un + deltat * 0.5 * k2;
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fourth step
-  C = - get_nonlinear_term(Un3,ind,f) * one_over_h ;
+  C = - get_nonlinear_term(Un3,ind,f,h) ;
   k3  = K * Un3 + C;
   Un4 = Un + deltat * k3;
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fifth step
-  C = - get_nonlinear_term(Un4,ind,f) * one_over_h ;
+  C = - get_nonlinear_term(Un4,ind,f,h) ;
   k4 = K * Un4 + C;
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -57,13 +56,26 @@ function y = RK4_FD_DFD (u,deltat,N,K,F,h,constant_sub)
 
 end
 
-function vecC = get_nonlinear_term(Un,ind,f)
-  cip1 = - 1 / ( 6 * (1 + f * max( min( ( Un(ind(:,7))-4*Un(ind(:,6))+6*Un(ind(:,5))-4*Un(ind(:,4))+Un(ind(:,3)) )./( Un(ind(:,6))-2*Un(ind(:,5))+Un(ind(:,4)) ) , 0 ) , -3 ) ) );
-  cim1 = - 1 / ( 6 * (1 + f * max( min( ( Un(ind(:,5))-4*Un(ind(:,4))+6*Un(ind(:,3))-4*Un(ind(:,2))+Un(ind(:,1)) )./( Un(ind(:,4))-2*Un(ind(:,3))+Un(ind(:,2)) ) , 0 ) , -3 ) ) );
+function vecC = get_nonlinear_term(Un,ind,f,h)
+% i = i-3  i-2  i-1  i  i+1  i+2  i+3
+%      1    2    3   4   5    6    7
+
+  indip1 = ind(:,3:7);
+  indim1 = ind(:,1:5);
+  
+  cip1 = - 1 ./ ( 6 * (1 + f * max( min( ( Un(indip1(:,5)) - 4*Un(indip1(:,4)) + 6*Un(indip1(:,3)) - 4*Un(indip1(:,2)) + Un(indip1(:,1)) ) ./ ( Un(indip1(:,4)) - 2*Un(indip1(:,3)) + Un(indip1(:,2)) ) , 0 ) , -3 ) ) );
+  cim1 = - 1 ./ ( 6 * (1 + f * max( min( ( Un(indim1(:,5)) - 4*Un(indim1(:,4)) + 6*Un(indim1(:,3)) - 4*Un(indim1(:,2)) + Un(indim1(:,1)) ) ./ ( Un(indim1(:,4)) - 2*Un(indim1(:,3)) + Un(indim1(:,2)) ) , 0 ) , -3 ) ) );
     
-  vecC = Un(ind(:,5)).^2 + ...
-         cip1'.*( Un(ind(:,6)).^2 -2*Un(ind(:,5)).^2 + Un(ind(:,4)).^2 ) - ...
-         Un(ind(:,3)).^2 - ...
-         cim1'.*( Un(ind(:,4)).^2 -2*Un(ind(:,3)).^2 + Un(ind(:,2)).^2 )  ;
+% Skew-symmetric form = energy conservative form (see the appendix in Fauconnier - Dick)
+  vecC = ( Un(ind(:,4)) .* ( Un(ind(:,5)) + cip1.*( Un(ind(:,6)) - 2*Un(ind(:,5)) + Un(ind(:,4)) ) - ...
+                             Un(ind(:,3)) - cim1.*( Un(ind(:,4)) - 2*Un(ind(:,3)) + Un(ind(:,2)) ) ) + ... 
+           Un(ind(:,5)).^2 + cip1 .* ( Un(ind(:,6)).^2 -2*Un(ind(:,5)).^2 + Un(ind(:,4)).^2 ) - ...
+           Un(ind(:,3)).^2 - cim1 .* ( Un(ind(:,4)).^2 -2*Un(ind(:,3)).^2 + Un(ind(:,2)).^2 ) ) / ( 6 * h ) ;
+  
+% Contains only the divergence form -> not energy conservative -> not good!
+%  vecC = ( Un(ind(:,5)).^2 + ...
+%           cip1.*( Un(ind(:,6)).^2 -2*Un(ind(:,5)).^2 + Un(ind(:,4)).^2 ) - ...
+%           Un(ind(:,3)).^2 - ...
+%           cim1.*( Un(ind(:,4)).^2 -2*Un(ind(:,3)).^2 + Un(ind(:,2)).^2 ) ) * 0.25 / h ;
 
 endfunction
