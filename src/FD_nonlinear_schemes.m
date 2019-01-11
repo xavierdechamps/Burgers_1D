@@ -1,6 +1,5 @@
-function FD_conservative_order2 (N,nu,constant_sub,L,time,nbrpointtemp,name,file_spectrum)
-% Solve the 1D forced Burgers equation with the energy conservative Hs scheme of 
-% order 2 for the convective term
+function FD_nonlinear_schemes (N,nu,constant_sub,L,time,nbrpointtemp,name,file_spectrum)
+% Solve the 1D forced Burgers equation with a nonlinear discretization for the convective term
 % The unknown of the equation is the velocity, thus 1 unknown per node
 %
 % du     du     d2u
@@ -8,7 +7,7 @@ function FD_conservative_order2 (N,nu,constant_sub,L,time,nbrpointtemp,name,file
 % dt     dx     dx2
 %************* Initialization of the parameters **************************
   disp("*********************************************************************")  
-  disp("Finite difference - 2nd order conservative scheme for convective term")
+  disp("Finite difference - nonlinear scheme for convective term")
   disp("*********************************************************************")  
 
   h = L/(N);% Length of the elements
@@ -27,21 +26,57 @@ function FD_conservative_order2 (N,nu,constant_sub,L,time,nbrpointtemp,name,file
 % ******** Rigidity Kij matrix *************
   K=sparse(N,N);  
   for i=1:N 
-    if (i==1) 
-        a=[N 1 2]; % periodic condition on the first node
-    elseif (i==N)
-        a=[N-1 N 1]; % periodic condition on the last node
-    else
-        a=[i-1 i i+1]; % indices of three successive nodes
+% Second order
+%    switch i
+%      case 1
+%        a=[N 1 2];
+%      case N
+%        a=[N-1 N 1];
+%      otherwise
+%        a=[i-1 i i+1];
+%    end
+%    K(i,a) = [1 -2 1]*nu/(h*h);
+  
+% Fourth order
+    switch i
+      case 1
+        a=[N-1 N 1 2 3];
+      case 2
+        a=[N 1 2 3 4];
+      case N-1
+        a=[N-3 N-2 N-1 N 1];
+      case N
+        a=[N-2 N-1 N 1 2];
+      otherwise
+        a=[i-2 i-1 i i+1 i+2];
     end
-    K(i,a(1:3)) = [ 1  -2  1] * nu/h/h  ;
+    K(i,a) = [-1 16 -30 16 -1]*nu/(12*h*h);    
+    
+% sixth order
+%    switch i
+%      case 1
+%        a=[N-2 N-1 N 1 2 3 4];
+%      case 2
+%        a=[N-1 N 1 2 3 4 5];
+%      case 3
+%        a=[N 1 2 3 4 5 6];
+%      case N-2
+%        a=[N-5 N-4 N-3 N-2 N-1 N 1];
+%      case N-1
+%        a=[N-4 N-3 N-2 N-1 N 1 2];
+%      case N
+%        a=[N-3 N-2 N-1 N 1 2 3];
+%      otherwise
+%        a=[i-3 i-2 i-1 i i+1 i+2 i+3];
+%    end
+%    K(i,a) = [1/90   -3/20   1.5   -49/18   1.5   -3/20   1/90]*nu/(h*h);
   end
 
-  kinEnergy = zeros(nbrpointtemp+1,1); kinEnergy(1) = u(:,1)' * u(:,1) * h * 0.5;
-    
+  kinEnergy    = zeros(nbrpointtemp+1,1); kinEnergy(1) = u(:,1)' * u(:,1) * h * 0.5;
+  
 %  filename=[name,num2str(1),'.mat']; uu=u(:,1); save(filename,'uu');
 
-  z=2; j=2; ind_error=1;
+  z=2;j=2; ind_error=1;
   nbrPointsStatistics=0; kinEnergyMean=0;
   
   spectralEnergy=zeros(N,1);
@@ -56,8 +91,13 @@ function FD_conservative_order2 (N,nu,constant_sub,L,time,nbrpointtemp,name,file
 %    F = 0;
     
 %******** Call Runge-Kutta and compute kinematic energy ********
-    u(:,z) = RK4_FD_conservative_order2 (u(:,z-1),deltat,N,K,F,h,constant_sub);
-
+%    u(:,z) = RK4_FD_DFD (u(:,z-1),deltat,N,K,F,h,constant_sub);
+    u(:,z) = RK4_FD_upwind_order1 (u(:,z-1),deltat,N,K,F,h,constant_sub);
+%    u(:,z) = RK4_FD_upwind_order2 (u(:,z-1),deltat,N,K,F,h,constant_sub);
+%    u(:,z) = RK4_FD_upwind_order3 (u(:,z-1),deltat,N,K,F,h,constant_sub);
+%    u(:,z) = RK4_FD_WENO5 (u(:,z-1),deltat,N,K,F,h,constant_sub);
+%    u(:,z) = NSSP_RK5_FD_WENO5 (u(:,z-1),deltat,N,K,F,h,constant_sub);
+    
     kinEnergy(i) = h*0.5*u(:,z)'*u(:,z);
         
     if (i*deltat>=timeBeforeStatistics)
@@ -71,7 +111,7 @@ function FD_conservative_order2 (N,nu,constant_sub,L,time,nbrpointtemp,name,file
 % Save the results, free some memory and show the results
     if ( mod(z/nbrpointtime,0.1) == 0)
         uu=u(:,end);
-%        filename=[name,num2str(j),'.mat']; save(filename,'uu'); j=j+1;
+%       filename=[name,num2str(j),'.mat']; save(filename,'uu'); j=j+1;
         clear u;
         z=1;
         u(:,1)=uu;

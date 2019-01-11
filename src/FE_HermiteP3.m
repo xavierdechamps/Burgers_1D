@@ -80,7 +80,7 @@ function FE_HermiteP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
 %******** Call Runge-Kutta and compute kinematic energy ********
     u(:,z) = RK4_FE_HermiteP3 (u(:,z-1),deltat,h,N,M,K,nu,F,constant_sub);
     
-    kinEnergy(i)=get_kinematic_energy(h,DG,u(:,end),N,2);
+    kinEnergy(i) = get_kinematic_energy(h,DG,u(:,end),N,2);
     
     if (i*deltat>=timeBeforeStatistics)
 %      kinEnergyMean = kinEnergyMean*nbrPointsStatistics/(nbrPointsStatistics+1) + kinEnergy(i)/(nbrPointsStatistics+1) ;
@@ -107,7 +107,8 @@ function FE_HermiteP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
         end
         
         Uinterpolated = Interpolation(u(:,end),h,N,1,Ninterpolation); % Interpolate within each element to show internal oscillations
-        subplot(1,2,1)
+        
+        subplot(2,2,1)
         plot(0:1/(length(Uinterpolated)):1,[Uinterpolated;Uinterpolated(1)],'b','Linewidth',3)
         title(strcat('Time= ',num2str(i*deltat),', Re= ',num2str(mean(Uinterpolated)*L/nu)))
         xlabel('x/(2*\pi)'); ylabel('u(t)'); grid on
@@ -124,6 +125,10 @@ function FE_HermiteP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
 %          hold on
 %          plot([X;X(end)+h]/L,[u(1:2:2*N-1,end);u(1,end)],'b*')
 %          hold off
+        
+        subplot(2,2,3);
+        plot((1:i)*deltat,kinEnergy(1:i),'b','Linewidth',3);
+        grid on; xlabel('Time'); ylabel('E(t)');
         
         subplot(1,2,2) ;
         loglog(0:N-1,spectralEnergy(1:N)/nbrPointsStatistics,'r','Linewidth',3, reference_spectrum(:,1),reference_spectrum(:,2),'b','Linewidth',3);

@@ -123,7 +123,7 @@ function FE_LagrangeP1(N,nu,constant_sub,L,time,nbrpointtemp,name,file_spectrum)
         plot((1:i)*deltat,kinEnergy(1:i),'b','Linewidth',3);
         grid on; xlabel('Time'); ylabel('E(t)');
                         
-        subplot(2,2,2);
+        subplot(1,2,2);
         loglog(0:(N/2-1),spectralEnergy(1:(N/2))/nbrPointsStatistics,'r','Linewidth',3, reference_spectrum(:,1),reference_spectrum(:,2),'b','Linewidth',3);
         grid on; xlabel('k'); ylabel('E(k)');
         

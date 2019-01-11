@@ -1,17 +1,18 @@
 function y= RK4_DF_dissipative_order2 (u,deltat,N,K,F,h,constant_sub)
-% Methode de Runge-Kutta d'ordre 4 pour une discretisation en differences
-% finies de l'equation de Burgers forcee, terme convectif sous forme
-% dissipative Hd2
-% 
-% Soit le problème du
+% Temporal integration of the 1D Burgers equation with an explicit 4 steps Runge-Kutta scheme
+% Spatial discretization with an energy dissipative Hd2 scheme of 
+% order 2 for the convective term
+%
+% The equation to be solved is 
+%                  du
 %                  -- = f(u,t)
 %                  dt
+% The explicit 4 steps Runge-Kutta scheme is 
 % U(n+1) = U(n) + 1/6(k1 + 2k2 + 2k3 +k4)
-% Avec k1 = f(U(n),t)
-% k2 = f(U(n) + (deltat/2)k1,t + deltat/2)
-% k3 = f(U(n) + (deltat/2)k2,t + deltat/2)
-% k4 = f(U(n) + deltat.k3,t + deltat)
-%Initialisation du terme non lineaire
+% where k1 = f(U(n),t)
+%       k2 = f(U(n) + (deltat/2)k1,t + deltat/2)
+%       k3 = f(U(n) + (deltat/2)k2,t + deltat/2)
+%       k4 = f(U(n) + deltat.k3,t + deltat
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% First step
 	Un=u;
 
