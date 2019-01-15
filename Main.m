@@ -6,7 +6,7 @@ warning off
 
 Length_domain     = 2*pi   % Total length of the spatial domain (1 or 2 for the sinus wave)
 Viscosity         = 0.0075 % Kinematic viscosity
-Number_elements   = 256     % Number of elements (for FE) / nodes (for FD)
+Number_elements   = 64     % Number of elements (for FE) / nodes (for FD)
 Subgrid_constant  = 0.;    % Subgrid terms are implemented for some discretizations
 Time_total        = 210     % Time of the simulation (1 for the sinus wave)
 Time_steps        = 21000   % Number of time steps, increment in time is thus equal to Time_total/Time_steps
@@ -25,7 +25,7 @@ Name_spectrum_ref = 'Results/spectrum_2048_75e-4_new.txt'; % Name of the referen
 % Method = 7 : finite difference energy dissipative order 2 for convective term
 % Method = 8 : finite difference compact spectral-like resolution
 % Method = 9 : finite difference non-linear discretization of the convective term
-method = 9;
+method = 8;
 
 addpath('./src/');
 
@@ -56,8 +56,6 @@ switch method
 
   case 9
      FD_nonlinear_schemes(Number_elements,Viscosity,Subgrid_constant,Length_domain,Time_total,Time_steps,Name_output,Name_spectrum_ref) ;
-% The nonlinear schemes are based on slope-limiters
-% It is still at an experimental stage in this code
   otherwise
      disp('Method is not implemented yet')
      

@@ -1,2 +1,5 @@
 # All the outputs from matlab/octave
 *.mat
+
+# Directory containing files that are not shared with GitHub
+Additional_files/
