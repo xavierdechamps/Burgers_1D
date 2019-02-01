@@ -92,7 +92,8 @@ function FD_nonlinear_schemes (N,nu,constant_sub,L,time,nbrpointtemp,name,file_s
     
 %******** Call Runge-Kutta and compute kinematic energy ********
 %    u(:,z) = RK4_FD_DFD (u(:,z-1),deltat,N,K,F,h,constant_sub);
-    u(:,z) = RK4_FD_upwind_order1 (u(:,z-1),deltat,N,K,F,h,constant_sub);
+    u(:,z) = RK4_FD_TVD (u(:,z-1),deltat,N,K,F,h,constant_sub);
+%    u(:,z) = RK4_FD_upwind_order1 (u(:,z-1),deltat,N,K,F,h,constant_sub);
 %    u(:,z) = RK4_FD_upwind_order2 (u(:,z-1),deltat,N,K,F,h,constant_sub);
 %    u(:,z) = RK4_FD_upwind_order3 (u(:,z-1),deltat,N,K,F,h,constant_sub);
 
@@ -100,7 +101,7 @@ function FD_nonlinear_schemes (N,nu,constant_sub,L,time,nbrpointtemp,name,file_s
 %    u(:,z) = RK4_FD_WENO5 (u(:,z-1),deltat,N,K,F,h,constant_sub);
 %    u(:,z) = NSSP_RK5_FD_WENO5 (u(:,z-1),deltat,N,K,F,h,constant_sub);
     
-    kinEnergy(i) = h*0.5*u(:,z)'*u(:,z);
+%    kinEnergy(i) = h*0.5*u(:,z)'*u(:,z);
         
     if (i*deltat>=timeBeforeStatistics)
 %      kinEnergyMean = kinEnergyMean*nbrPointsStatistics/(nbrPointsStatistics+1) + kinEnergy(i)/(nbrPointsStatistics+1);
@@ -141,9 +142,9 @@ function FD_nonlinear_schemes (N,nu,constant_sub,L,time,nbrpointtemp,name,file_s
 %        disp(strcat('Time : ',num2str(relative_error(ind_error,1)),' and relative error : ', num2str(relative_error(ind_error,2)) ))
 %        ind_error = ind_error + 1;
         
-         subplot(2,2,3)
-         plot((0:(i-1))*deltat,kinEnergy(1:i),'Linewidth',3)
-         grid on; xlabel('Time'); ylabel('E(t)')
+%         subplot(2,2,3)
+%         plot((0:(i-1))*deltat,kinEnergy(1:i),'Linewidth',3)
+%         grid on; xlabel('Time'); ylabel('E(t)')
          
          subplot(1,2,2)
          loglog(0:(N/2-1),spectralEnergy(1:(N/2))/nbrPointsStatistics,'r','Linewidth',3, reference_spectrum(:,1),reference_spectrum(:,2),'b','Linewidth',3)
