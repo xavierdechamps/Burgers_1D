@@ -133,6 +133,7 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
         subplot(2,2,1);
         plot(X/L, uu,'Linewidth',3)
         grid on; xlabel('x/(2*\pi)'); ylabel('u(t)')
+        xlim([0 1])
         title(strcat('Time= ',num2str((i-1)*deltat),', Re= ',num2str(mean(uu)*L/nu)))
         
 %        sol_theory = get_analytical_solution((i-1)*deltat,nu,X(1:(end/2 + 1)),100) ;
@@ -145,14 +146,17 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
         subplot(2,2,3)
         plot((0:(i-1))*deltat,kinEnergy(1:i),'Linewidth',3)
         grid on; xlabel('Time'); ylabel('E(t)')
+        xlim([0 time])
          
         subplot(2,2,2)
         loglog(0:(N/2-1),spectralEnergy(1:(N/2))/nbrPointsStatistics,'r','Linewidth',3, reference_spectrum(:,1),reference_spectrum(:,2),'b','Linewidth',3)
         grid on; xlabel('k'); ylabel('E(k)')
+        xlim([1 reference_spectrum(end,1)])
         
         subplot(2,2,4)
         plot((0:(i-1))*deltat,energy_conv(1:i),'b','Linewidth',3)
         grid on; xlabel('Time'); ylabel('E_{prod}(t)')
+        xlim([0 time])
             
         drawnow;
     end
@@ -177,3 +181,175 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
   %save(filename,'kinEnergy');
   
 end
+
+function [y,energy] = RK4_FD_compact_spectral (u,deltat,N,mat_deriv1,mat_deriv2,F,h,constant_sub,factors_deriv)
+% Temporal integration of the 1D Burgers equation with an explicit 4 steps Runge-Kutta scheme
+% Spatial discretization with compact finite difference schemes
+% 
+% The equation to be solved is 
+%                  du
+%                  -- = f(u,t)
+%                  dt
+% The explicit 4 steps Runge-Kutta scheme is 
+% U(n+1) = U(n) + 1/6(k1 + 2k2 + 2k3 +k4)
+% where k1 = f(U(n),t)
+%       k2 = f(U(n) + (deltat/2)k1,t + deltat/2)
+%       k3 = f(U(n) + (deltat/2)k2,t + deltat/2)
+%       k4 = f(U(n) + deltat.k3,t + deltat
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% First step
+  Un = u;
+    
+##  ind = zeros(N,13);
+##  ind(:,7) = 1:N; % i
+##  ind(:,6) = circshift(ind(:,7),1,1) ; % i-1
+##  ind(:,5) = circshift(ind(:,7),2,1) ; % i-2
+##  ind(:,4) = circshift(ind(:,7),3,1) ; % i-3
+##  ind(:,3) = circshift(ind(:,7),4,1) ; % i-4
+##  ind(:,2) = circshift(ind(:,7),5,1) ; % i-5
+##  ind(:,1) = circshift(ind(:,7),6,1) ; % i-6
+##  ind(:,8) = circshift(ind(:,7),-1,1); % i+1
+##  ind(:,9) = circshift(ind(:,7),-2,1); % i+2
+##  ind(:,10)= circshift(ind(:,7),-3,1); % i+3
+##  ind(:,11)= circshift(ind(:,7),-4,1); % i+4
+##  ind(:,12)= circshift(ind(:,7),-5,1); % i+5
+##  ind(:,13)= circshift(ind(:,7),-6,1); % i+6
+  
+  ind = zeros(N,7);
+  ind(:,4) = 1:N; % i
+  ind(:,3) = circshift(ind(:,4),1,1) ; % i-1
+  ind(:,2) = circshift(ind(:,4),2,1) ; % i-2
+  ind(:,1) = circshift(ind(:,4),3,1) ; % i-3
+  ind(:,5) = circshift(ind(:,4),-1,1); % i+1
+  ind(:,6) = circshift(ind(:,4),-2,1); % i+2
+  ind(:,7) = circshift(ind(:,4),-3,1); % i+3
+  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Second step
+  C = get_nonlinear_term(Un,ind,constant_sub,h,N,mat_deriv1,factors_deriv) ;
+  
+% Second derivative for the viscous term
+  vec_deriv2 = get_second_derivative(Un,ind,factors_deriv);
+  
+  k1  = C + mat_deriv2\vec_deriv2 ;
+  Un2 = Un + deltat*0.5*k1;
+  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Third step
+  C = get_nonlinear_term(Un2,ind,constant_sub,h,N,mat_deriv1,factors_deriv) ;
+    
+% Second derivative for the viscous term
+  vec_deriv2 = get_second_derivative(Un2,ind,factors_deriv);
+  
+  k2  = C + mat_deriv2\vec_deriv2 ;
+  Un3 = Un + deltat*0.5*k2;
+  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fourth step
+  C = get_nonlinear_term(Un3,ind,constant_sub,h,N,mat_deriv1,factors_deriv) ;
+    
+% Second derivative for the viscous term
+  vec_deriv2 = get_second_derivative(Un3,ind,factors_deriv);
+
+  k3  = C + mat_deriv2\vec_deriv2 ;
+  Un4 = Un + deltat*k3;
+  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fifth step
+  C = get_nonlinear_term(Un4,ind,constant_sub,h,N,mat_deriv1,factors_deriv) ;
+  
+% Second derivative for the viscous term
+  vec_deriv2 = get_second_derivative(Un4,ind,factors_deriv);
+    
+  k4 = C + mat_deriv2\vec_deriv2 ;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+  y = Un + deltat*(k1 + 2*k2 + 2*k3 +k4 )/6 + F;
+  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+   
+%    energy = 0;
+    energy = get_energy(y,ind,mat_deriv1,mat_deriv2,factors_deriv,h,F);
+
+endfunction
+
+function vecC = get_nonlinear_term(Un,ind,constant_sub,h,N,mat_deriv1,factors_deriv)
+% i-3  i-2  i-1  i  i+1  i+2  i+3 
+%  1    2    3   4   5    6    7   
+  
+% Convective term, first the divergence form
+   vec_derivUsquare = get_first_derivative( 0.5*Un.*Un , ind, factors_deriv );
+   nonlin_div       = mat_deriv1 \ vec_derivUsquare;
+   
+% Convective term, then the advective form
+   vec_derivU = get_first_derivative( Un, ind, factors_deriv );
+   vec_derivU = mat_deriv1 \ vec_derivU ;
+   nonlin_adv = Un .* vec_derivU ;
+   
+% Convective term in skew-symmetric form
+   vecC = - ( nonlin_adv + 2*nonlin_div ) / 3 ;
+   
+% Subgrid term
+   if (constant_sub>0)
+##     vec_derivSG_im1 = get_first_derivative( Un, ind(:,3:9), factors_deriv ); vec_derivSG_im1 = mat_deriv1 \ vec_derivSG_im1 ;
+##     vec_derivSG_im2 = get_first_derivative( Un, ind(:,2:8), factors_deriv ); vec_derivSG_im2 = mat_deriv1 \ vec_derivSG_im2 ;
+##     vec_derivSG_im3 = get_first_derivative( Un, ind(:,1:7), factors_deriv ); vec_derivSG_im3 = mat_deriv1 \ vec_derivSG_im3 ;
+##     
+##     vec_derivSG_ip1 = get_first_derivative( Un, ind(:,5:11), factors_deriv ); vec_derivSG_ip1 = mat_deriv1 \ vec_derivSG_ip1 ;
+##     vec_derivSG_ip2 = get_first_derivative( Un, ind(:,6:12), factors_deriv ); vec_derivSG_ip2 = mat_deriv1 \ vec_derivSG_ip2 ;
+##     vec_derivSG_ip3 = get_first_derivative( Un, ind(:,7:13), factors_deriv ); vec_derivSG_ip3 = mat_deriv1 \ vec_derivSG_ip3 ;
+     
+     vec_derivSG_im1 = circshift( vec_derivU ,  1 , 1 ); % derivative du/dx at node i-1
+     vec_derivSG_im2 = circshift( vec_derivU ,  2 , 1 ); % derivative du/dx at node i-2
+     vec_derivSG_im3 = circshift( vec_derivU ,  3 , 1 ); % derivative du/dx at node i-3
+     vec_derivSG_ip1 = circshift( vec_derivU , -1 , 1 ); % derivative du/dx at node i+1
+     vec_derivSG_ip2 = circshift( vec_derivU , -2 , 1 ); % derivative du/dx at node i+2
+     vec_derivSG_ip3 = circshift( vec_derivU , -3 , 1 ); % derivative du/dx at node i+3
+     
+     vec_derivSG = mat_deriv1 \ ( factors_deriv(5,1) * ( vec_derivSG_ip3.*abs(vec_derivSG_ip3) - vec_derivSG_im3.*abs(vec_derivSG_im3) ) + ...
+                                  factors_deriv(4,1) * ( vec_derivSG_ip2.*abs(vec_derivSG_ip2) - vec_derivSG_im2.*abs(vec_derivSG_im2) ) + ...
+                                  factors_deriv(3,1) * ( vec_derivSG_ip1.*abs(vec_derivSG_ip1) - vec_derivSG_im1.*abs(vec_derivSG_im1) ) );
+     
+     vecC += ( constant_sub * h )^2 * vec_derivSG ;
+   endif
+   
+endfunction
+
+function dfdx = get_first_derivative(Un,ind,factors_deriv)
+% i-3  i-2  i-1  i  i+1  i+2  i+3
+%  1    2    3   4   5    6    7
+
+% Compute the first spatial derivative with a compact finite difference scheme
+  dfdx = factors_deriv(5,1) * ( Un(ind(:,7)) - Un(ind(:,1)) ) + ...
+         factors_deriv(4,1) * ( Un(ind(:,6)) - Un(ind(:,2)) ) + ...
+         factors_deriv(3,1) * ( Un(ind(:,5)) - Un(ind(:,3)) ) ;
+endfunction
+
+function d2fdx2 = get_second_derivative(Un,ind,factors_deriv)
+% Compute the second spatial derivative with a compact finite difference scheme
+  d2fdx2 = factors_deriv(5,2) * ( Un(ind(:,7)) -2*Un(ind(:,4)) + Un(ind(:,1)) ) + ...
+           factors_deriv(4,2) * ( Un(ind(:,6)) -2*Un(ind(:,4)) + Un(ind(:,2)) ) + ...
+           factors_deriv(3,2) * ( Un(ind(:,5)) -2*Un(ind(:,4)) + Un(ind(:,3)) ) ;  
+endfunction
+
+function energy = get_energy(Un,ind,mat_deriv1,mat_deriv2,factors_deriv,h,F)
+% Compute the numerical energy produced by the spatial discretization of the 
+% convective term in the skew-symmetric form
+  energy = 0;
+  
+% Divergence form
+  vec_deriv1 = get_first_derivative( 0.5*Un.*Un ,ind,factors_deriv);
+  deriv1_u = mat_deriv1\vec_deriv1;
+  energy1 = h * Un' * deriv1_u;
+    
+% Advective form
+  vec_deriv1 = get_first_derivative(Un,ind,factors_deriv);
+  deriv1_u = mat_deriv1\vec_deriv1;
+  energy2 = h * (Un .* Un)' * deriv1_u; 
+
+% Sum between advective and divergent forms for nonlinear term
+  energy = energy - (2*energy1 + energy2)/3 ;
+  
+% % Contribution for viscous dissipation
+%  vec_deriv2 = get_second_derivative(Un,ind,factors_deriv) ;
+%  deriv2_u = mat_deriv2\vec_deriv2;
+%  energy = energy + h * Un' * deriv2_u;
+     
+% % Contribution of forcing term
+%  energy = energy + h * Un' * F;
+endfunction

@@ -8,7 +8,7 @@ function FD_dissipative_order2 (N,nu,constant_sub,L,time,nbrpointtemp,name,file_
 % dt     dx     dx2
 %************* Initialization of the parameters **************************
   disp("*********************************************************************")  
-  disp("Finite difference - 2nd order dissipative scheme for convective term ")
+  disp("Finite difference - 2nd order divergence form for convective term ")
   disp("*********************************************************************")
   
   h=L/(N);% Length of the elements
@@ -25,24 +25,7 @@ function FD_dissipative_order2 (N,nu,constant_sub,L,time,nbrpointtemp,name,file_
 
   timeBeforeStatistics = 10;
 
-% ******** Rigidity Kij matrix *************
-  K=sparse(N,N);
-  for i=1:N %Parcourir selon les lignes et completer les colonnes
-    if (i==1) %a designe les indices de trois noeuds successifs
-        a=[N 1 2];%permet de simplifier le probl�me de la p�riodicite
-    elseif (i==N)
-        a=[N-1 N 1];
-    else
-        a=[i-1 i i+1];
-    end
-    K(i,a(1:3)) = nu * [ 1 -2 1 ] /h/h;
-%    K(i,a(1))=nu/h/h;
-%    K(i,a(2))=nu/h/h*(-2);
-%    K(i,a(3))=nu/h/h;
-  end
-
   kinEnergy = zeros(nbrpointtemp+1,1); kinEnergy(1) = u(:,1)' * u(:,1) * h * 0.5;
-  
 %  filename=[name,num2str(1),'.mat']; uu=u(:,1); save(filename,'uu');
 
   z=2;j=2;
@@ -60,7 +43,7 @@ function FD_dissipative_order2 (N,nu,constant_sub,L,time,nbrpointtemp,name,file_
 %    F=0;
 
 %******** Call Runge-Kutta and compute kinematic energy ********
-    u(:,z) = RK4_FD_dissipative_order2 (u(:,z-1),deltat,N,K,F,h,constant_sub);
+    u(:,z) = RK4_FD_dissipative_order2 (u(:,z-1),deltat,N,nu,F,h,constant_sub);
 
     kinEnergy(i) = h*0.5*u(:,z)'*u(:,z);
     
@@ -94,15 +77,18 @@ function FD_dissipative_order2 (N,nu,constant_sub,L,time,nbrpointtemp,name,file_
         subplot(2,2,1)
         plot([X;X(end)+h]/L, [uu; uu(1)],'Linewidth',3)
         grid on; xlabel('x/(2*\pi)'); ylabel('u(t)')
+        xlim([0 1])
         title(strcat('Time= ',num2str(i*deltat),', Re= ',num2str(mean(uu)*L/nu)))
         
         subplot(2,2,3)
         plot((0:(i-1))*deltat,kinEnergy(1:i),'Linewidth',3)
         grid on; xlabel('Time'); ylabel('E(t)')
+         xlim([0 time])
          
         subplot(1,2,2)
         loglog(0:(N/2-1),spectralEnergy(1:(N/2))/nbrPointsStatistics,'r','Linewidth',3, reference_spectrum(:,1),reference_spectrum(:,2),'b','Linewidth',3)
         grid on; xlabel('k'); ylabel('E(k)')
+         xlim([1 reference_spectrum(end,1)])
         
         drawnow
     end
@@ -125,3 +111,89 @@ function FD_dissipative_order2 (N,nu,constant_sub,L,time,nbrpointtemp,name,file_
   %save(filename,'kinEnergy');
 
 end
+
+function y= RK4_FD_dissipative_order2 (u,deltat,N,nu,F,h,constant_sub)
+% Temporal integration of the 1D Burgers equation with an explicit 4 steps Runge-Kutta scheme
+% Spatial discretization with an energy dissipative Hd2 scheme of 
+% order 2 for the convective term
+%
+% The equation to be solved is 
+%                  du
+%                  -- = f(u,t)
+%                  dt
+% The explicit 4 steps Runge-Kutta scheme is 
+% U(n+1) = U(n) + 1/6(k1 + 2k2 + 2k3 +k4)
+% where k1 = f(U(n),t)
+%       k2 = f(U(n) + (deltat/2)k1,t + deltat/2)
+%       k3 = f(U(n) + (deltat/2)k2,t + deltat/2)
+%       k4 = f(U(n) + deltat.k3,t + deltat
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% First step
+	Un=u;
+
+  ind = zeros(N,5);
+  ind(:,3) = 1:N;
+  ind(:,2) = circshift(ind(:,3), 1,1);
+  ind(:,1) = circshift(ind(:,3), 2,1);
+  ind(:,4) = circshift(ind(:,3),-1,1);
+  ind(:,5) = circshift(ind(:,3),-2,1);
+  
+	sixth = 1/6;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Second step
+  C      = get_nonlinear_term(Un,ind,constant_sub,h,N);
+  du2dx2 = nu * get_second_derivative( Un(ind(:,2:4)) , h ) ;
+	k1     = du2dx2 + C;
+	Un2    = Un+deltat*0.5*k1;
+  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Third step
+  C      = get_nonlinear_term(Un2,ind,constant_sub,h,N);
+  du2dx2 = nu * get_second_derivative( Un2(ind(:,2:4)) , h ) ;
+	k2     = du2dx2 + C;
+	Un3    = Un+deltat*0.5*k2;
+  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fourth step
+	C      = get_nonlinear_term(Un3,ind,constant_sub,h,N);
+  du2dx2 = nu * get_second_derivative( Un3(ind(:,2:4)) , h ) ;
+	k3     = du2dx2 + C;
+	Un4    = Un+deltat*k3;
+  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fifth step
+	C      = get_nonlinear_term(Un4,ind,constant_sub,h,N);
+  du2dx2 = nu * get_second_derivative( Un4(ind(:,2:4)) , h ) ;
+	k4     = du2dx2 + C;
+  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	y = Un + deltat*sixth*(k1 + 2*k2 + 2*k3 +k4 ) +F;
+  
+end
+
+function vecC = get_nonlinear_term(Un,ind,constant_sub,h,N)
+% Compute the non-linear + subgrid terms with the dissipative scheme
+% i = i-2  i-1  i  i+1  i+2
+%      1    2   3   4    5
+##	fourth = 0.25;
+##	one_over_h = 1/h;
+  
+% non-linear terms
+% Divergence form
+   du2dx = get_first_derivative( Un(ind(:,2:4)) .* Un(ind(:,2:4)) , h );
+   vecC  = - du2dx * 0.5 ; 
+   
+% Subgrid term
+   if (constant_sub>0)
+     dudx_im1 = get_first_derivative( Un(ind(:,1:3)) , h ); % derivative at node i-1
+     dudx_ip1 = get_first_derivative( Un(ind(:,3:5)) , h ); % derivative at node i+1
+     vecC    += constant_sub^2 * h * ( dudx_ip1.*abs(dudx_ip1) - dudx_im1.*abs(dudx_im1) ) * 0.5;
+   endif
+
+endfunction
+
+function dudx = get_first_derivative(Un,h)
+% Un has size (N,3)
+   dudx = ( Un(:,3) - Un(:,1) ) * 0.5 / h ;
+endfunction
+
+function du2dx2 = get_second_derivative(Un,h)
+% Un has size (N,3)
+   du2dx2 = ( Un(:,1) - 2*Un(:,2) + Un(:,3) ) / (h*h) ;
+endfunction

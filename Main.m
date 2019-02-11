@@ -5,14 +5,14 @@ format long
 warning off
 
 Length_domain     = 2*pi   % Total length of the spatial domain (1 or 2 for the sinus wave)
-Viscosity         = 0.0075 % Kinematic viscosity
-Number_elements   = 2048     % Number of elements (for FE) / nodes (for FD)
+Viscosity         = 0.0035 % Kinematic viscosity
+Number_elements   = 256     % Number of elements (for FE) / nodes (for FD)
 Subgrid_constant  = 0.;    % Subgrid terms are implemented for some discretizations
 Time_total        = 410     % Time of the simulation (1 for the sinus wave)
-Time_steps        = 800000   % Number of time steps, increment in time is thus equal to Time_total/Time_steps
+Time_steps        = 40000   % Number of time steps, increment in time is thus equal to Time_total/Time_steps
 Ninterpolation    = 50;    % The high-order finite elements show oscillations within the elements, this parameter indicates how many additionnal points are interpolated for each element
-Name_output       = 'TVD_7.5e-3_2048_CO' % Name of the output file
-Name_spectrum_ref = 'Results/spectrum_2048_75e-4_new.txt'; % Name of the reference turbulence spectrum calculated by a pseudo-spectral method
+Name_output       = 'DifferenceFinieDissipatif_3.5e-3_256_C0.0' % Name of the output file
+Name_spectrum_ref = 'Results/spectrum_2048_35e-4_new.txt'; % Name of the reference turbulence spectrum calculated by a pseudo-spectral method
 % Results/spectrum_2048_35e-4_new.txt has 1024 modes and has been calculated for a kinematic viscosity = 0.0035
 % Results/spectrum_2048_75e-4_new.txt has 1024 modes and has been calculated for a kinematic viscosity = 0.0075
 
@@ -25,13 +25,13 @@ Name_spectrum_ref = 'Results/spectrum_2048_75e-4_new.txt'; % Name of the referen
 % Method = 7 : finite difference energy dissipative order 2 for convective term
 % Method = 8 : finite difference compact spectral-like resolution
 % Method = 9 : finite difference non-linear discretization of the convective term
-method = 9;
+method = 7;
 
 addpath('./src/');
 
 switch method
   case 1
-    FE_LagrangeP1(Number_elements,Viscosity,Subgrid_constant,Length_domain,Time_total,Time_steps,Name_output,Name_spectrum_ref);
+     FE_LagrangeP1(Number_elements,Viscosity,Subgrid_constant,Length_domain,Time_total,Time_steps,Name_output,Name_spectrum_ref);
     
   case 2
      FE_LagrangeP3(Number_elements,Viscosity,Subgrid_constant,Length_domain,Time_total,Time_steps,Ninterpolation,Name_output,Name_spectrum_ref);
@@ -56,6 +56,7 @@ switch method
 
   case 9
      FD_nonlinear_schemes(Number_elements,Viscosity,Subgrid_constant,Length_domain,Time_total,Time_steps,Name_output,Name_spectrum_ref) ;
+
   otherwise
      disp('Method is not implemented yet')
      
