@@ -24,27 +24,25 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
   timeBeforeStatistics = 10;
 
 % Multiplicative factors for the first and second spatial derivatives
+% The first column contains the constants for the first spatial derivative
+% The second column contains the constants for the second spatial derivative
+% The constants in the rows are respectively [ alpha  beta  a  b  c ]'
   factors_deriv = zeros(5,2) ;
 % Optimal - see the doc
-  factors_deriv(1:5,1) = [0.5771439  0.0896406  1.3025166  0.99355  0.03750245]'; % alpha beta a b c
-  factors_deriv(1:5,2) = [0.50209266 0.05569169 0.21564935 1.723322 0.17659730]'; % alpha beta a b c
+  factors_deriv(1:5,1) = [0.5771439  0.0896406  1.3025166  0.99355  0.03750245]';
+  factors_deriv(1:5,2) = [0.50209266 0.05569169 0.21564935 1.723322 0.17659730]';
 % Order 10 - see the doc
 %  factors_deriv(1:5,1) = [0.5  1/20  17/12  101/150  0.01]';
 %  factors_deriv(1:5,2) = [334/899 43/1798 1065/1798 1038/899 79/1798]';
 % Order 8 - see the doc
 %  factors_deriv(1:5,1) = [4/9 1/36 40/27 25/54 0]';
-%  alpha = 344/1179;
-%  factors_deriv(1:5,2) = [alpha (38*alpha-9)/214 (696-1191*alpha)/428 (2454*alpha-294)/535 0]';
+%  alpha = 344/1179; factors_deriv(1:5,2) = [alpha (38*alpha-9)/214 (696-1191*alpha)/428 (2454*alpha-294)/535 0]';
 % Order 6 - see the doc
-%  alpha = 1/3;  beta=0;
-%  factors_deriv(1:5,1) = [alpha beta (9+alpha-20*beta)/6 (-9+32*alpha+62*beta)/15 (1-3*alpha+12*beta)/10]';
-%  alpha = 2/11; beta=0;
-%  factors_deriv(1:5,2) = [alpha beta (6-9*alpha-12*beta)*0.25 (-3+24*alpha-6*beta)*0.2 (2-11*alpha+124*beta)/20]';
+%  alpha = 1/3;  beta=0; factors_deriv(1:5,1) = [alpha beta (9+alpha-20*beta)/6 (-9+32*alpha+62*beta)/15 (1-3*alpha+12*beta)/10]';
+%  alpha = 2/11; beta=0; factors_deriv(1:5,2) = [alpha beta (6-9*alpha-12*beta)*0.25 (-3+24*alpha-6*beta)*0.2 (2-11*alpha+124*beta)/20]';
 % Order 4 central scheme - see the doc
-%  alpha = 0;  beta=0;
-%  factors_deriv(1:5,1) = [0 0 2*(2+alpha)/3 (4*alpha-1)/3  0]';
-%  alpha = 0; beta=0;
-%  factors_deriv(1:5,2) = [0 0 4*(1-alpha)/3 (10*alpha-1)/3  0]';
+%  alpha = 0; beta=0; factors_deriv(1:5,1) = [0 0 2*(2+alpha)/3 (4*alpha-1)/3  0]';
+%  alpha = 0; beta=0; factors_deriv(1:5,2) = [0 0 4*(1-alpha)/3 (10*alpha-1)/3  0]';
 % Order 2 central scheme - see the doc
 %  factors_deriv(1:5,1) = [0 0 1 0  0]';
 %  factors_deriv(1:5,2) = [0 0 1 0  0]';
@@ -54,34 +52,31 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
   factors_deriv(3,2) = factors_deriv(3,2)/(h*h); factors_deriv(4,2) = factors_deriv(4,2)/(4*h*h); factors_deriv(5,2) = factors_deriv(5,2)/(9*h*h); 
   factors_deriv(3:5,2) = factors_deriv(3:5,2) * nu ;
   
-% Create the matrix for the first spatial derivative
-  diag0 = ones(N,1);
-  diag1 = factors_deriv(1,1) * ones(N,1); % alpha
-  diag2 = factors_deriv(2,1) * ones(N,1); % beta
-  C0 = diag(sparse(diag0));  
-  Cp1 = diag(sparse(diag1),1);  Cm1 = diag(sparse(diag1),-1);
-  Cp2 = diag(sparse(diag2),2);  Cm2 = diag(sparse(diag2),-2);
-  mat_deriv1 = C0 + Cp1(1:N,1:N) + Cm1(2:N+1,2:N+1) + Cp2(1:N,1:N) + Cm2(3:N+2,3:N+2);
-  mat_deriv1(N-1,1) = diag2(N-1) ;   mat_deriv1(2,N)     = diag2(2) ;
-  mat_deriv1(N,1)   = diag1(N);      mat_deriv1(N,2)     = diag2(N);
-  mat_deriv1(1,N)   = diag1(1);      mat_deriv1(1,N-1)   = diag2(1); 
+% Store the indices of the neighbour nodes i-3 i-2 i-1 i i+1 i+2 i+3 used in the derivatives
+  ind = zeros(N,7);
+  ind(:,4) = 1:N; % i
+  ind(:,3) = circshift(ind(:,4),1,1) ; % i-1
+  ind(:,2) = circshift(ind(:,4),2,1) ; % i-2
+  ind(:,1) = circshift(ind(:,4),3,1) ; % i-3
+  ind(:,5) = circshift(ind(:,4),-1,1); % i+1
+  ind(:,6) = circshift(ind(:,4),-2,1); % i+2
+  ind(:,7) = circshift(ind(:,4),-3,1); % i+3
   
-% Create the matrix for the second spatial derivative
-  diag0 = ones(N,1);
-  diag1 = factors_deriv(1,2) * ones(N,1); % alpha
-  diag2 = factors_deriv(2,2) * ones(N,1); % beta
-  C0 = diag(sparse(diag0));  
-  Cp1 = diag(sparse(diag1),1);  Cm1 = diag(sparse(diag1),-1);
-  Cp2 = diag(sparse(diag2),2);  Cm2 = diag(sparse(diag2),-2);
-  mat_deriv2 = C0 + Cp1(1:N,1:N) + Cm1(2:N+1,2:N+1) + Cp2(1:N,1:N) + Cm2(3:N+2,3:N+2);
-  mat_deriv2(N-1,1) = diag2(N-1) ;   mat_deriv2(2,N)     = diag2(2) ;
-  mat_deriv2(N,1)   = diag1(N);      mat_deriv2(N,2)     = diag2(N);
-  mat_deriv2(1,N)   = diag1(1);      mat_deriv2(1,N-1)   = diag2(1);
+% Create the matrices to solve the system of equations for the first 
+% and second spatial derivatives
+   mat_deriv1=zeros(N,N) ;
+   mat_deriv2=zeros(N,N) ;
+   for i=1:N
+      mat_deriv1(i, ind(i,2:6)) = [factors_deriv(2,1) , factors_deriv(1,1) , 1 , factors_deriv(1,1) , factors_deriv(2,1)] ;
+      mat_deriv2(i, ind(i,2:6)) = [factors_deriv(2,2) , factors_deriv(1,2) , 1 , factors_deriv(1,2) , factors_deriv(2,2)] ;
+   endfor
+   mat_deriv1 = sparse(mat_deriv1);
+   mat_deriv2 = sparse(mat_deriv2);
       
   kinEnergy = zeros(nbrpointtemp+1,1); kinEnergy(1) = u(:,1)' * u(:,1) * h * 0.5 ;
 % energy_conv is the numerical energy produced by the spatial discretization of the convective term,
 % it must be equal to zero for an energy conservative scheme
-  energy_conv= zeros(nbrpointtemp+1,1);
+  energy_conv = zeros(nbrpointtemp+1,1);
     
 %  filename=strcat(name,num2str(1),'.mat'); uu=u(:,1); save(filename,'uu');
 
@@ -100,7 +95,7 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
 %    F = 0;
     
 %******** Call Runge-Kutta and compute kinematic energy ********
-    [u(:,z), energy_conv(i)] = RK4_FD_compact_spectral (u(:,z-1),deltat,N,mat_deriv1,mat_deriv2,F,h,constant_sub,factors_deriv);
+    [u(:,z), energy_conv(i)] = RK4_FD_compact_spectral (u(:,z-1),deltat,N,mat_deriv1,mat_deriv2,F,h,constant_sub,factors_deriv,ind);
     kinEnergy(i) = h*0.5*u(:,z)'*u(:,z);
         
     if (i*deltat>=timeBeforeStatistics)
@@ -131,7 +126,7 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
         end
         
         subplot(2,2,1);
-        plot(X/L, uu,'Linewidth',3)
+        plot(X/L, uu,'b','Linewidth',3)
         grid on; xlabel('x/(2*\pi)'); ylabel('u(t)')
         xlim([0 1])
         title(strcat('Time= ',num2str((i-1)*deltat),', Re= ',num2str(mean(uu)*L/nu)))
@@ -144,7 +139,7 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
 %        ind_error = ind_error + 1;
         
         subplot(2,2,3)
-        plot((0:(i-1))*deltat,kinEnergy(1:i),'Linewidth',3)
+        plot((0:(i-1))*deltat,kinEnergy(1:i),'b','Linewidth',3)
         grid on; xlabel('Time'); ylabel('E(t)')
         xlim([0 time])
          
@@ -166,7 +161,7 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
     CFL=u(:,end)*deltat/h;
 % Stability criterion for explicit Runge Kutta 4
     if (max(CFL)>2.8)
-        disp(strcat('Divergence of ',name));
+        disp(['Divergence of ',name]);
         break;
     end
     end
@@ -174,7 +169,8 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
 %  relative_error
   
    spectralEnergyOut = spectralEnergy(1:(N/2))/nbrPointsStatistics;
-   filename2=strcat('Spectral_energy_',name,'.mat');
+%   filename2=strcat('Spectral_energy_',name,'.mat');
+   filename2=strcat('Energie_Spectrale_',name,'.mat');
    save(filename2,'-ascii','spectralEnergyOut');
   
   %filename=strcat('Energy_',name,'.mat');
@@ -182,7 +178,7 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
   
 end
 
-function [y,energy] = RK4_FD_compact_spectral (u,deltat,N,mat_deriv1,mat_deriv2,F,h,constant_sub,factors_deriv)
+function [y,energy] = RK4_FD_compact_spectral (u,deltat,N,mat_deriv1,mat_deriv2,F,h,constant_sub,factors_deriv,ind)
 % Temporal integration of the 1D Burgers equation with an explicit 4 steps Runge-Kutta scheme
 % Spatial discretization with compact finite difference schemes
 % 
@@ -198,30 +194,6 @@ function [y,energy] = RK4_FD_compact_spectral (u,deltat,N,mat_deriv1,mat_deriv2,
 %       k4 = f(U(n) + deltat.k3,t + deltat
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% First step
   Un = u;
-    
-##  ind = zeros(N,13);
-##  ind(:,7) = 1:N; % i
-##  ind(:,6) = circshift(ind(:,7),1,1) ; % i-1
-##  ind(:,5) = circshift(ind(:,7),2,1) ; % i-2
-##  ind(:,4) = circshift(ind(:,7),3,1) ; % i-3
-##  ind(:,3) = circshift(ind(:,7),4,1) ; % i-4
-##  ind(:,2) = circshift(ind(:,7),5,1) ; % i-5
-##  ind(:,1) = circshift(ind(:,7),6,1) ; % i-6
-##  ind(:,8) = circshift(ind(:,7),-1,1); % i+1
-##  ind(:,9) = circshift(ind(:,7),-2,1); % i+2
-##  ind(:,10)= circshift(ind(:,7),-3,1); % i+3
-##  ind(:,11)= circshift(ind(:,7),-4,1); % i+4
-##  ind(:,12)= circshift(ind(:,7),-5,1); % i+5
-##  ind(:,13)= circshift(ind(:,7),-6,1); % i+6
-  
-  ind = zeros(N,7);
-  ind(:,4) = 1:N; % i
-  ind(:,3) = circshift(ind(:,4),1,1) ; % i-1
-  ind(:,2) = circshift(ind(:,4),2,1) ; % i-2
-  ind(:,1) = circshift(ind(:,4),3,1) ; % i-3
-  ind(:,5) = circshift(ind(:,4),-1,1); % i+1
-  ind(:,6) = circshift(ind(:,4),-2,1); % i+2
-  ind(:,7) = circshift(ind(:,4),-3,1); % i+3
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Second step
   C = get_nonlinear_term(Un,ind,constant_sub,h,N,mat_deriv1,factors_deriv) ;
@@ -285,21 +257,13 @@ function vecC = get_nonlinear_term(Un,ind,constant_sub,h,N,mat_deriv1,factors_de
    vecC = - ( nonlin_adv + 2*nonlin_div ) / 3 ;
    
 % Subgrid term
-   if (constant_sub>0)
-##     vec_derivSG_im1 = get_first_derivative( Un, ind(:,3:9), factors_deriv ); vec_derivSG_im1 = mat_deriv1 \ vec_derivSG_im1 ;
-##     vec_derivSG_im2 = get_first_derivative( Un, ind(:,2:8), factors_deriv ); vec_derivSG_im2 = mat_deriv1 \ vec_derivSG_im2 ;
-##     vec_derivSG_im3 = get_first_derivative( Un, ind(:,1:7), factors_deriv ); vec_derivSG_im3 = mat_deriv1 \ vec_derivSG_im3 ;
-##     
-##     vec_derivSG_ip1 = get_first_derivative( Un, ind(:,5:11), factors_deriv ); vec_derivSG_ip1 = mat_deriv1 \ vec_derivSG_ip1 ;
-##     vec_derivSG_ip2 = get_first_derivative( Un, ind(:,6:12), factors_deriv ); vec_derivSG_ip2 = mat_deriv1 \ vec_derivSG_ip2 ;
-##     vec_derivSG_ip3 = get_first_derivative( Un, ind(:,7:13), factors_deriv ); vec_derivSG_ip3 = mat_deriv1 \ vec_derivSG_ip3 ;
-     
-     vec_derivSG_im1 = circshift( vec_derivU ,  1 , 1 ); % derivative du/dx at node i-1
-     vec_derivSG_im2 = circshift( vec_derivU ,  2 , 1 ); % derivative du/dx at node i-2
-     vec_derivSG_im3 = circshift( vec_derivU ,  3 , 1 ); % derivative du/dx at node i-3
-     vec_derivSG_ip1 = circshift( vec_derivU , -1 , 1 ); % derivative du/dx at node i+1
-     vec_derivSG_ip2 = circshift( vec_derivU , -2 , 1 ); % derivative du/dx at node i+2
-     vec_derivSG_ip3 = circshift( vec_derivU , -3 , 1 ); % derivative du/dx at node i+3
+   if (constant_sub>0)     
+     vec_derivSG_im1 = vec_derivU(ind(:,3)) ; % derivative du/dx at node i-1
+     vec_derivSG_im2 = vec_derivU(ind(:,2)) ; % derivative du/dx at node i-2
+     vec_derivSG_im3 = vec_derivU(ind(:,1)) ; % derivative du/dx at node i-3
+     vec_derivSG_ip1 = vec_derivU(ind(:,5)) ; % derivative du/dx at node i+1
+     vec_derivSG_ip2 = vec_derivU(ind(:,6)) ; % derivative du/dx at node i+2
+     vec_derivSG_ip3 = vec_derivU(ind(:,7)) ; % derivative du/dx at node i+3
      
      vec_derivSG = mat_deriv1 \ ( factors_deriv(5,1) * ( vec_derivSG_ip3.*abs(vec_derivSG_ip3) - vec_derivSG_im3.*abs(vec_derivSG_im3) ) + ...
                                   factors_deriv(4,1) * ( vec_derivSG_ip2.*abs(vec_derivSG_ip2) - vec_derivSG_im2.*abs(vec_derivSG_im2) ) + ...

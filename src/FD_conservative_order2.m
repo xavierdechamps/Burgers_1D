@@ -33,6 +33,12 @@ function FD_conservative_order2 (N,nu,constant_sub,L,time,nbrpointtemp,name,file
   spectralEnergy=zeros(N,1);
   reference_spectrum=load(file_spectrum);
 
+% Store the indices of the neighbour nodes i-1 i i+1 used in the derivatives
+  ind = zeros(N,3);
+  ind(:,2) = 1:N; % i
+  ind(:,1) = circshift(ind(:,2), 1,1); % i-1
+  ind(:,3) = circshift(ind(:,2),-1,1); % i+1
+  
   for i=2:nbrpointtime+1   
 %***************** Forcing term with with-noise random phase ******************
     phi2=2*pi*rand();    phi3=2*pi*rand();
@@ -42,7 +48,7 @@ function FD_conservative_order2 (N,nu,constant_sub,L,time,nbrpointtemp,name,file
 %    F = 0;
     
 %******** Call Runge-Kutta and compute kinematic energy ********
-    u(:,z) = RK4_FD_conservative_order2 (u(:,z-1),deltat,N,nu,F,h,constant_sub);
+    u(:,z) = RK4_FD_conservative_order2 (u(:,z-1),deltat,N,nu,F,h,constant_sub,ind);
 
     kinEnergy(i) = h*0.5*u(:,z)'*u(:,z);
         
@@ -104,7 +110,7 @@ function FD_conservative_order2 (N,nu,constant_sub,L,time,nbrpointtemp,name,file
     CFL=u(:,end)*deltat/h;
 % Stability criterion for explicit Runge Kutta 4
     if (max(CFL)>2.8)
-        disp(strcat('Divergence of ',name));
+        disp(['Divergence of ',name]);
         break;
     end
   end
@@ -120,7 +126,7 @@ function FD_conservative_order2 (N,nu,constant_sub,L,time,nbrpointtemp,name,file
   
 end
 
-function y = RK4_FD_conservative_order2 (u,deltat,N,nu,F,h,constant_sub)
+function y = RK4_FD_conservative_order2 (u,deltat,N,nu,F,h,constant_sub,ind)
 % Temporal integration of the 1D Burgers equation with an explicit 4 steps Runge-Kutta scheme
 % Spatial discretization with an energy conservative Hs scheme of 
 % order 2 for the convective term
@@ -137,20 +143,6 @@ function y = RK4_FD_conservative_order2 (u,deltat,N,nu,F,h,constant_sub)
 %       k4 = f(U(n) + deltat.k3,t + deltat
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% First step
 	Un=u;
-
-##  ind = zeros(N,5);
-##  ind(:,3) = 1:N;
-##  ind(:,2) = circshift(ind(:,3), 1,1);
-##  ind(:,1) = circshift(ind(:,3), 2,1);
-##  ind(:,4) = circshift(ind(:,3),-1,1);
-##  ind(:,5) = circshift(ind(:,3),-2,1);
-  
-  ind = zeros(N,3);
-  ind(:,2) = 1:N;
-  ind(:,1) = circshift(ind(:,2), 1,1);
-  ind(:,3) = circshift(ind(:,2),-1,1);
-  
-	sixth = 1/6;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Second step
   C      = get_nonlinear_term(Un,ind,constant_sub,h,N);
@@ -176,28 +168,26 @@ function y = RK4_FD_conservative_order2 (u,deltat,N,nu,F,h,constant_sub)
 	k4     = du2dx2 + C;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-	y = Un + deltat*sixth*(k1 + 2*k2 + 2*k3 +k4 ) + F;
+	y = Un + deltat*sixth*(k1 + 2*k2 + 2*k3 +k4 )/6 + F;
 	
 end
 
 function vecC = get_nonlinear_term(Un,ind,constant_sub,h,N)
-% i = i-2  i-1  i  i+1  i+2
-%      1    2   3   4    5
+% i = i-1  i  i+1
+%      1   2   3
   
 % Advective form
-   dudx  = get_first_derivative( Un(ind(:,:))                   , h ); % derivative at node i
+   dudx  = get_first_derivative( Un(ind(:,:))                   , h ); % derivative du/dx
 % Divergence form
-   du2dx = get_first_derivative( Un(ind(:,:)) .* Un(ind(:,:)) , h );
+   du2dx = get_first_derivative( Un(ind(:,:)) .* Un(ind(:,:)) , h ); % derivative d(u^2)/dx
 % Skew-symmetric formulation
    vecC = - ( Un.*dudx + du2dx ) / 3 ;
    
 % Subgrid term
-   if (constant_sub>0)
-%     dudx_im1 = get_first_derivative( Un(ind(:,1:3)) , h ); % derivative at node i-1
-%     dudx_ip1 = get_first_derivative( Un(ind(:,3:5)) , h ); % derivative at node i+1
-     dudx_im1 = circshift( dudx ,  1 , 1 ); % derivative du/dx at node i-1
-     dudx_ip1 = circshift( dudx , -1 , 1 ); % derivative du/dx at node i+1
-     vecC    += constant_sub^2 * h * ( dudx_ip1.*abs(dudx_ip1) - dudx_im1.*abs(dudx_im1) ) * 0.5;
+   if (constant_sub>0)     
+     dudx_im1 = dudx(ind(:,1)) ; % derivative du/dx at node i-1
+     dudx_ip1 = dudx(ind(:,3)) ; % derivative du/dx at node i+1
+     vecC    += constant_sub^2 * h * ( dudx_ip1.*abs(dudx_ip1) - dudx_im1.*abs(dudx_im1) ) * 0.5 ;
    endif
 
 endfunction

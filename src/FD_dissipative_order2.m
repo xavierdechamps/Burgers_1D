@@ -34,6 +34,14 @@ function FD_dissipative_order2 (N,nu,constant_sub,L,time,nbrpointtemp,name,file_
   spectralEnergy=zeros(N,1);
   reference_spectrum=load(file_spectrum);
   
+% Store the indices of the neighbour nodes i-2 i-1 i i+1 i+2 used in the derivatives
+  ind = zeros(N,5);
+  ind(:,3) = 1:N; % i
+  ind(:,2) = circshift(ind(:,3), 1,1); % i-1
+  ind(:,1) = circshift(ind(:,3), 2,1); % i-2
+  ind(:,4) = circshift(ind(:,3),-1,1); % i+1
+  ind(:,5) = circshift(ind(:,3),-2,1); % i+2
+  
   for i=2:nbrpointtime+1   
 %***************** Forcing term with with-noise random phase ******************
     phi2=2*pi*rand(); phi3=2*pi*rand();
@@ -43,7 +51,7 @@ function FD_dissipative_order2 (N,nu,constant_sub,L,time,nbrpointtemp,name,file_
 %    F=0;
 
 %******** Call Runge-Kutta and compute kinematic energy ********
-    u(:,z) = RK4_FD_dissipative_order2 (u(:,z-1),deltat,N,nu,F,h,constant_sub);
+    u(:,z) = RK4_FD_dissipative_order2 (u(:,z-1),deltat,N,nu,F,h,constant_sub,ind);
 
     kinEnergy(i) = h*0.5*u(:,z)'*u(:,z);
     
@@ -98,7 +106,7 @@ function FD_dissipative_order2 (N,nu,constant_sub,L,time,nbrpointtemp,name,file_
     CFL=u(:,end).*deltat/h;
 % Stability criterion for explicit Runge Kutta 4
     if (max(CFL)>2.8)
-        disp(strcat('Divergence of ',name,', CFL=',num2str(max(CFL))));
+        disp(['Divergence of ',name,', CFL=',num2str(max(CFL))]);
         break;
     end
   end
@@ -112,7 +120,7 @@ function FD_dissipative_order2 (N,nu,constant_sub,L,time,nbrpointtemp,name,file_
 
 end
 
-function y= RK4_FD_dissipative_order2 (u,deltat,N,nu,F,h,constant_sub)
+function y= RK4_FD_dissipative_order2 (u,deltat,N,nu,F,h,constant_sub,ind)
 % Temporal integration of the 1D Burgers equation with an explicit 4 steps Runge-Kutta scheme
 % Spatial discretization with an energy dissipative Hd2 scheme of 
 % order 2 for the convective term
@@ -129,15 +137,6 @@ function y= RK4_FD_dissipative_order2 (u,deltat,N,nu,F,h,constant_sub)
 %       k4 = f(U(n) + deltat.k3,t + deltat
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% First step
 	Un=u;
-
-  ind = zeros(N,5);
-  ind(:,3) = 1:N;
-  ind(:,2) = circshift(ind(:,3), 1,1);
-  ind(:,1) = circshift(ind(:,3), 2,1);
-  ind(:,4) = circshift(ind(:,3),-1,1);
-  ind(:,5) = circshift(ind(:,3),-2,1);
-  
-	sixth = 1/6;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Second step
   C      = get_nonlinear_term(Un,ind,constant_sub,h,N);
@@ -163,7 +162,7 @@ function y= RK4_FD_dissipative_order2 (u,deltat,N,nu,F,h,constant_sub)
 	k4     = du2dx2 + C;
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-	y = Un + deltat*sixth*(k1 + 2*k2 + 2*k3 +k4 ) +F;
+	y = Un + deltat*sixth*(k1 + 2*k2 + 2*k3 +k4 )/6 +F;
   
 end
 
@@ -171,11 +170,8 @@ function vecC = get_nonlinear_term(Un,ind,constant_sub,h,N)
 % Compute the non-linear + subgrid terms with the dissipative scheme
 % i = i-2  i-1  i  i+1  i+2
 %      1    2   3   4    5
-##	fourth = 0.25;
-##	one_over_h = 1/h;
   
-% non-linear terms
-% Divergence form
+% non-linear term in divergence form
    du2dx = get_first_derivative( Un(ind(:,2:4)) .* Un(ind(:,2:4)) , h );
    vecC  = - du2dx * 0.5 ; 
    

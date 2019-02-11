@@ -33,6 +33,18 @@ function FD_conservative_order4 (N,nu,constant_sub,L,time,nbrpointtemp,name,file
   spectralEnergy=zeros(N,1);
   reference_spectrum=load(file_spectrum);
 
+% Store the indices of the neighbour nodes i-4 i-3 i-2 i-1 i i+1 i+2 i+3 i+4 used in the derivatives
+  ind = zeros(N,9);
+  ind(:,5) = 1:N; % i
+  ind(:,4) = circshift(ind(:,5),1,1) ; % i-1
+  ind(:,3) = circshift(ind(:,5),2,1) ; % i-2
+  ind(:,2) = circshift(ind(:,5),3,1) ; % i-3
+  ind(:,1) = circshift(ind(:,5),4,1) ; % i-4
+  ind(:,6) = circshift(ind(:,5),-1,1); % i+1
+  ind(:,7) = circshift(ind(:,5),-2,1); % i+2
+  ind(:,8) = circshift(ind(:,5),-3,1); % i+3
+  ind(:,9) = circshift(ind(:,5),-4,1); % i+4
+  
   for i=2:nbrpointtime+1   
 %***************** Forcing term with with-noise random phase ******************
     phi2=2*pi*rand();    phi3=2*pi*rand();
@@ -42,7 +54,7 @@ function FD_conservative_order4 (N,nu,constant_sub,L,time,nbrpointtemp,name,file
 %    F=0;
     
 %******** Call Runge-Kutta and compute kinematic energy ********
-    u(:,z) = RK4_FD_conservative_order4 (u(:,z-1),deltat,N,nu,F,h,constant_sub);
+    u(:,z) = RK4_FD_conservative_order4 (u(:,z-1),deltat,N,nu,F,h,constant_sub,ind);
 
     kinEnergy(i) = h*0.5*u(:,z)'*u(:,z);
         
@@ -104,7 +116,7 @@ function FD_conservative_order4 (N,nu,constant_sub,L,time,nbrpointtemp,name,file
     CFL=u(:,end).*deltat/h;
 % Stability criterion for explicit Runge Kutta 4
     if (max(CFL)>2.8)
-        disp(strcat('Divergence of ',name));
+        disp(['Divergence of ',name]);
         break;
     end
   end
@@ -124,7 +136,7 @@ function FD_conservative_order4 (N,nu,constant_sub,L,time,nbrpointtemp,name,file
   
 end
 
-function y = RK4_FD_conservative_order4 (u,deltat,N,nu,F,h,constant_sub)
+function y = RK4_FD_conservative_order4 (u,deltat,N,nu,F,h,constant_sub,ind)
 % Temporal integration of the 1D Burgers equation with an explicit 4 steps Runge-Kutta scheme
 % Spatial discretization with an energy conservative Hs scheme of 
 % order 4 for the convective term
@@ -141,20 +153,7 @@ function y = RK4_FD_conservative_order4 (u,deltat,N,nu,F,h,constant_sub)
 %       k4 = f(U(n) + deltat.k3,t + deltat
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% First step
   Un = u;
-
-  ind = zeros(N,9);
-  ind(:,5) = 1:N; % i
-  ind(:,4) = circshift(ind(:,5),1,1) ; % i-1
-  ind(:,3) = circshift(ind(:,5),2,1) ; % i-2
-  ind(:,2) = circshift(ind(:,5),3,1) ; % i-3
-  ind(:,1) = circshift(ind(:,5),4,1) ; % i-4
-  ind(:,6) = circshift(ind(:,5),-1,1); % i+1
-  ind(:,7) = circshift(ind(:,5),-2,1); % i+2
-  ind(:,8) = circshift(ind(:,5),-3,1); % i+3
-  ind(:,9) = circshift(ind(:,5),-4,1); % i+4
-
-  sixth = 1/6;
-
+  
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Second step
   C      = get_nonlinear_term(Un,ind,constant_sub,h,N);
 %  du2dx2 = nu * get_second_derivative_order2( Un(ind(:,4:6)) , h ) ;
@@ -187,7 +186,7 @@ function y = RK4_FD_conservative_order4 (u,deltat,N,nu,F,h,constant_sub)
 	k4     = du2dx2 + C;
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  y = Un + deltat*sixth*(k1 + 2*k2 + 2*k3 + k4 ) + F ;
+  y = Un + deltat*(k1 + 2*k2 + 2*k3 + k4 )/6 + F ;
   
 end
 
@@ -204,16 +203,10 @@ function vecC = get_nonlinear_term(Un,ind,constant_sub,h,N)
    
 % Subgrid term
    if (constant_sub>0)
-##     dudx_im2 = get_first_derivative( Un(ind(:,1:5)) , h ); % derivative at node i-2
-##     dudx_im1 = get_first_derivative( Un(ind(:,2:6)) , h ); % derivative at node i-1
-##     dudx_ip1 = get_first_derivative( Un(ind(:,4:8)) , h ); % derivative at node i+1
-##     dudx_ip2 = get_first_derivative( Un(ind(:,5:9)) , h ); % derivative at node i+2
-
-     dudx_im1 = circshift( dudx ,  1 , 1 ); % derivative du/dx at node i-1
-     dudx_im2 = circshift( dudx ,  2 , 1 ); % derivative du/dx at node i-2
-     dudx_ip1 = circshift( dudx , -1 , 1 ); % derivative du/dx at node i+1
-     dudx_ip2 = circshift( dudx , -2 , 1 ); % derivative du/dx at node i+2
-     
+     dudx_im1 = dudx(ind(:,4)) ; % derivative du/dx at node i-1
+     dudx_im2 = dudx(ind(:,3)) ; % derivative du/dx at node i-2
+     dudx_ip1 = dudx(ind(:,6)) ; % derivative du/dx at node i+1
+     dudx_ip2 = dudx(ind(:,7)) ; % derivative du/dx at node i+2     
      vecC    += constant_sub^2 * h * ( dudx_im2.*abs(dudx_im2) - 8*dudx_im1.*abs(dudx_im1) + 8*dudx_ip1.*abs(dudx_ip1) - dudx_ip2.*abs(dudx_ip2) ) / 12;
    endif
 endfunction
