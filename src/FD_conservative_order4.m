@@ -1,4 +1,4 @@
-function FD_conservative_order4 (N,nu,constant_sub,L,time,nbrpointtemp,name,file_spectrum)
+function FD_conservative_order4 (N,nu,constant_sub,filter,L,time,nbrpointtemp,name,file_spectrum)
 % Solve the 1D forced Burgers equation with the energy conservative Hs scheme of 
 % order 4 for the convective term
 % The unknown of the equation is the velocity, thus 1 unknown per node
@@ -45,6 +45,7 @@ function FD_conservative_order4 (N,nu,constant_sub,L,time,nbrpointtemp,name,file
   ind(:,8) = circshift(ind(:,5),-3,1); % i+3
   ind(:,9) = circshift(ind(:,5),-4,1); % i+4
   
+  dynamic_smag_constant = zeros(nbrpointtemp,1);
   for i=2:nbrpointtime+1   
 %***************** Forcing term with with-noise random phase ******************
     phi2=2*pi*rand();    phi3=2*pi*rand();
@@ -54,7 +55,8 @@ function FD_conservative_order4 (N,nu,constant_sub,L,time,nbrpointtemp,name,file
 %    F=0;
     
 %******** Call Runge-Kutta and compute kinematic energy ********
-    u(:,z) = RK4_FD_conservative_order4 (u(:,z-1),deltat,N,nu,F,h,constant_sub,ind);
+    [u(:,z),dynamic_smag_constant(i-1)] = ...
+              RK4_FD_conservative_order4 (u(:,z-1),deltat,N,nu,F,h,constant_sub,ind,filter);
 
     kinEnergy(i) = h*0.5*u(:,z)'*u(:,z);
         
@@ -103,17 +105,22 @@ function FD_conservative_order4 (N,nu,constant_sub,L,time,nbrpointtemp,name,file
          grid on; xlabel('Time'); ylabel('E(t)')
          xlim([0 time])
          
-         subplot(1,2,2)
+         subplot(2,2,2)
          loglog(0:(N/2-1),spectralEnergy(1:(N/2))/nbrPointsStatistics,'r','Linewidth',3, reference_spectrum(:,1),reference_spectrum(:,2),'b','Linewidth',3)
          grid on; xlabel('k'); ylabel('E(k)')
          xlim([1 reference_spectrum(end,1)])
-        
+
+         subplot(2,2,4)
+         plot((1:(i-1))*deltat,dynamic_smag_constant(1:i-1),'Linewidth',3)
+         grid on; xlabel('Time'); ylabel('Smagorinsky C_s(t)') ;
+         xlim([0 time])
+         
          drawnow
     end
     
     z=z+1;
   
-    CFL=u(:,end).*deltat/h;
+    CFL=u(:,end)*deltat/h;
 % Stability criterion for explicit Runge Kutta 4
     if (max(CFL)>2.8)
         disp(['Divergence of ',name]);
@@ -121,22 +128,17 @@ function FD_conservative_order4 (N,nu,constant_sub,L,time,nbrpointtemp,name,file
     end
   end
   
+  mean_Smagorinsky = mean(dynamic_smag_constant)
+  
 %  relative_error
   
   spectralEnergyOut = spectralEnergy(1:(N/2))/nbrPointsStatistics;
   filename2=strcat('Spectral_energy_',name,'.mat');
   save(filename2,'spectralEnergyOut');
-
-  %figure()
-  %loglog(spectralEnergyOut)
-  %grid on
-
-  %filename=strcat('Energie_',name,'.mat');
-  %save(filename,'kinEnergy');
   
 end
 
-function y = RK4_FD_conservative_order4 (u,deltat,N,nu,F,h,constant_sub,ind)
+function [y,dynamic_sub] = RK4_FD_conservative_order4 (u,deltat,N,nu,F,h,constant_sub,ind,filter)
 % Temporal integration of the 1D Burgers equation with an explicit 4 steps Runge-Kutta scheme
 % Spatial discretization with an energy conservative Hs scheme of 
 % order 4 for the convective term
@@ -154,35 +156,44 @@ function y = RK4_FD_conservative_order4 (u,deltat,N,nu,F,h,constant_sub,ind)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% First step
   Un = u;
   
+%%%%%% Get the Smagorinsky constant in case of dynamic model
+  if (filter>0)
+     kappa = 2; % filter ratio
+     dynamic_sub = get_dynamic_smagorinsky(Un,ind,h,kappa,filter);
+     constant_sub = dynamic_sub ;
+  else
+     dynamic_sub = constant_sub ;
+  end
+  
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Second step
   C      = get_nonlinear_term(Un,ind,constant_sub,h,N);
-%  du2dx2 = nu * get_second_derivative_order2( Un(ind(:,4:6)) , h ) ;
-  du2dx2 = nu * get_second_derivative_order4( Un(ind(:,3:7)) , h ) ;
-%  du2dx2 = nu * get_second_derivative_order6( Un(ind(:,2:8)) , h ) ;
+%  du2dx2 = nu * get_second_derivative_order2( Un , ind(:,4:6) , h ) ;
+  du2dx2 = nu * get_second_derivative_order4( Un , ind(:,3:7) , h ) ;
+%  du2dx2 = nu * get_second_derivative_order6( Un , ind(:,2:8) , h ) ;
 	k1     = du2dx2 + C;
   Un2    = Un + deltat*0.5*k1 ;
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Third step
   C      = get_nonlinear_term(Un2,ind,constant_sub,h,N);
-%  du2dx2 = nu * get_second_derivative_order2( Un2(ind(:,4:6)) , h ) ;
-  du2dx2 = nu * get_second_derivative_order4( Un2(ind(:,3:7)) , h ) ;
-%  du2dx2 = nu * get_second_derivative_order6( Un2(ind(:,2:8)) , h ) ;
+%  du2dx2 = nu * get_second_derivative_order2( Un2 , ind(:,4:6) , h ) ;
+  du2dx2 = nu * get_second_derivative_order4( Un2 , ind(:,3:7) , h ) ;
+%  du2dx2 = nu * get_second_derivative_order6( Un2 , ind(:,2:8) , h ) ;
 	k2     = du2dx2 + C;
   Un3    = Un + deltat*0.5*k2;
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fourth step
   C      = get_nonlinear_term(Un3,ind,constant_sub,h,N);
-%  du2dx2 = nu * get_second_derivative_order2( Un3(ind(:,4:6)) , h ) ;
-  du2dx2 = nu * get_second_derivative_order4( Un3(ind(:,3:7)) , h ) ;
-%  du2dx2 = nu * get_second_derivative_order6( Un3(ind(:,2:8)) , h ) ;
+%  du2dx2 = nu * get_second_derivative_order2( Un3 , ind(:,4:6) , h ) ;
+  du2dx2 = nu * get_second_derivative_order4( Un3 , ind(:,3:7) , h ) ;
+%  du2dx2 = nu * get_second_derivative_order6( Un3 , ind(:,2:8) , h ) ;
 	k3     = du2dx2 + C;
   Un4    = Un + deltat*k3;
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fifth step
   C      = get_nonlinear_term(Un4,ind,constant_sub,h,N);
-%  du2dx2 = nu * get_second_derivative_order2( Un4(ind(:,4:6)) , h ) ;
-  du2dx2 = nu * get_second_derivative_order4( Un4(ind(:,3:7)) , h ) ;
-%  du2dx2 = nu * get_second_derivative_order6( Un4(ind(:,2:8)) , h ) ;
+%  du2dx2 = nu * get_second_derivative_order2( Un4 , ind(:,4:6) , h ) ;
+  du2dx2 = nu * get_second_derivative_order4( Un4 , ind(:,3:7) , h ) ;
+%  du2dx2 = nu * get_second_derivative_order6( Un4 , ind(:,2:8) , h ) ;
 	k4     = du2dx2 + C;
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -195,9 +206,9 @@ function vecC = get_nonlinear_term(Un,ind,constant_sub,h,N)
 %  1    2    3    4   5   6    7    8    9
    
 % Advective form
-   dudx  = get_first_derivative( Un(ind(:,3:7))                   , h ); % derivative at node i
+   dudx  = get_first_derivative( Un      , ind(:,3:7) , h ); % derivative at node i
 % Divergence form
-   du2dx = get_first_derivative( Un(ind(:,3:7)) .* Un(ind(:,3:7)) , h );
+   du2dx = get_first_derivative( Un .* Un, ind(:,3:7) , h );
 % Skew-symmetric formulation
    vecC  = - ( Un.*dudx + du2dx ) / 3 ;
    
@@ -211,23 +222,70 @@ function vecC = get_nonlinear_term(Un,ind,constant_sub,h,N)
    endif
 endfunction
 
-function dudx = get_first_derivative(Un,h)
-% Un has size(N,5)  
-   dudx = (Un(:,1) - 8*Un(:,2) + 8*Un(:,4) - Un(:,5))/(12*h);
+function dudx = get_first_derivative(Un,ind,h)
+% ind has size(N,5)  
+   dudx = ( Un(ind(:,1)) - 8*Un(ind(:,2)) + 8*Un(ind(:,4)) - Un(ind(:,5)) )/(12*h);
 endfunction
 
-function du2dx2 = get_second_derivative_order2(Un,h)
-% Un has size (N,3)
-   du2dx2 = ( Un(:,1) - 2*Un(:,2) + Un(:,3) ) / (h*h) ;
+function du2dx2 = get_second_derivative_order2(Un,ind,h)
+% ind has size (N,3)
+   du2dx2 = ( Un(ind(:,1)) - 2*Un(ind(:,2)) + Un(ind(:,3)) ) / (h*h) ;
 endfunction
 
-function du2dx2 = get_second_derivative_order4(Un,h)
-% Un has size (N,5)
-   du2dx2 = ( - Un(:,1) + 16*Un(:,2) - 30*Un(:,3) + 16*Un(:,4) - Un(:,5) ) / (12*h*h) ;
+function du2dx2 = get_second_derivative_order4(Un,ind,h)
+% ind has size (N,5)
+   du2dx2 = ( - Un(ind(:,1)) + 16*Un(ind(:,2)) - 30*Un(ind(:,3)) + ...
+                               16*Un(ind(:,4)) - Un(ind(:,5)) ) / (12*h*h) ;
 endfunction
 
-function du2dx2 = get_second_derivative_order6(Un,h)
-% Un has size (N,7)
-% [1/90   -3/20   1.5   -49/18   1.5   -3/20   1/90]*nu/(h*h); 
-   du2dx2 = ( Un(:,1)/90 - 3*Un(:,2)/20 + 1.5*Un(:,3) - 49*Un(:,4)/18 + 1.5*Un(:,5) - 3*Un(:,6)/20 + Un(:,7)/90 ) / (h*h) ;
+function du2dx2 = get_second_derivative_order6(Un,ind,h)
+% ind has size (N,7)
+   du2dx2 = ( Un(ind(:,1))/90 - 3*Un(ind(:,2))/20 + 1.5*Un(ind(:,3)) - ...
+              49*Un(ind(:,4))/18 + 1.5*Un(ind(:,5)) - 3*Un(ind(:,6))/20 + ...
+              Un(ind(:,7))/90 ) / (h*h) ;
+endfunction
+
+function smooth = apply_filter(Un,ind,type)
+% i-4  i-3  i-2  i-1  i  i+1  i+2  i+3  i+4
+%  1    2    3    4   5   6    7    8    9
+   switch type
+      case 1
+% Low-pass filter binomial over 3 points B2
+         smooth = 0.25 * ( Un(ind(:,4)) + 2*Un(ind(:,5)) + Un(ind(:,6)) ) ;
+      case 2
+% Low-pass filter binomial over 5 points B(2,1)
+         smooth = ( -Un(ind(:,3)) + 4*Un(ind(:,4)) + 10*Un(ind(:,5)) + 4*Un(ind(:,6)) - Un(ind(:,7)) )/16;
+      case 3
+% Low-pass filter binomial over 7 points B(3,1)
+         smooth = ( Un(ind(:,2)) - 6*Un(ind(:,3)) + 15*Un(ind(:,4)) + 44*Un(ind(:,5)) + ...
+                            15*Un(ind(:,6)) - 6*Un(ind(:,7)) + Un(ind(:,8)) )/64;
+      case 4
+% Low-pass filter binomial over 9 points B(4,1)
+         smooth = ( -Un(ind(:,1)) +8*Un(ind(:,2)) - 28*Un(ind(:,3)) + 56*Un(ind(:,4)) + 186*Un(ind(:,5)) + ...
+                     56*Un(ind(:,6)) - 28*Un(ind(:,7)) + 8*Un(ind(:,8)) - Un(ind(:,9)) )/256;
+      otherwise
+          disp("Unknown type of filter");
+          smooth = Un ;
+   end
+endfunction
+
+function dynamic_sub = get_dynamic_smagorinsky(Un,ind,h,kappa,filter)
+% Compute the Smagorinsky constant by a dynamic model
+% See "Evaluation of explicit and implicit LES closures for Burgers turbulence"
+% by R. Maulik and O. San, Journal of Computational and Applied Mathematics 327 (2018) 12-40
+   u_filter   = apply_filter(Un    ,ind,filter) ;
+   usq_filter = apply_filter(Un.*Un,ind,filter) ;
+   u_filtersq = u_filter.*u_filter;
+   
+   H = get_first_derivative( u_filtersq*0.5 , ind(:,3:7) , h) - ...
+       get_first_derivative( usq_filter*0.5 , ind(:,3:7) , h ) ;
+   
+   deriv_u_filter = get_first_derivative(u_filter,ind(:,3:7),h);
+   tmp1 = apply_filter(deriv_u_filter.*abs(deriv_u_filter),ind,filter);
+   
+   M = kappa*kappa*get_first_derivative( abs(deriv_u_filter).*deriv_u_filter , ind(:,3:7) , h ) -...
+       get_first_derivative( tmp1 , ind(:,3:7) , h );
+   
+   csdsq = sum(H.*M) / sum(M.*M); % (Cs * Delta)^2
+   dynamic_sub = sqrt(abs(csdsq)) / h ;
 endfunction

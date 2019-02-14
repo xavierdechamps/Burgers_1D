@@ -1,5 +1,6 @@
 Solve the 1D random forced viscous Burgers equation with high order finite element and finite difference methods.
 Direct Numerical Simulation and Large-Eddy Simulation are possible. The turbulence model implemented for LES is the eddy viscosity Smagorinsky model.
+Both a constant Smagorinsky model and a dynamic Smagorinsky model are implemented.
 
 The main driver of the code is the file Main.m
 
