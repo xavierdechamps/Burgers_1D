@@ -1,5 +1,9 @@
 # All the outputs from matlab/octave
 *.mat
 
+# Files
+*.pdf
+gnuplot*
+
 # Directory containing files that are not shared with GitHub
 Additional_files/

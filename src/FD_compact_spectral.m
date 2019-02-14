@@ -1,4 +1,4 @@
-function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_spectrum)
+function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_spectrum,submethod)
 % Solve the 1D forced Burgers equation with compact finite difference schemes
 % The unknown of the equation is the velocity, thus 1 unknown per node
 %
@@ -8,7 +8,6 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
 %************* Initialization of the parameters **************************
   disp('*********************************************************************')  
   disp('Finite difference - Compact schemes with spectral-like resolution')
-  disp('*********************************************************************')  
 
   h = L/(N);% Length of the elements
   X = linspace(0,L,N)';
@@ -28,25 +27,48 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
 % The second column contains the constants for the second spatial derivative
 % The constants in the rows are respectively [ alpha  beta  a  b  c ]'
   factors_deriv = zeros(5,2) ;
+  switch submethod
+     case 1
 % Optimal - see the doc
-  factors_deriv(1:5,1) = [0.5771439  0.0896406  1.3025166  0.99355  0.03750245]';
-  factors_deriv(1:5,2) = [0.50209266 0.05569169 0.21564935 1.723322 0.17659730]';
+        factors_deriv(1:5,1) = [0.5771439  0.0896406  1.3025166  0.99355  0.03750245]';
+        factors_deriv(1:5,2) = [0.50209266 0.05569169 0.21564935 1.723322 0.17659730]';
+        disp('   Optimal order')
+     case 2
 % Order 10 - see the doc
-%  factors_deriv(1:5,1) = [0.5  1/20  17/12  101/150  0.01]';
-%  factors_deriv(1:5,2) = [334/899 43/1798 1065/1798 1038/899 79/1798]';
+        factors_deriv(1:5,1) = [0.5  1/20  17/12  101/150  0.01]';
+        factors_deriv(1:5,2) = [334/899 43/1798 1065/1798 1038/899 79/1798]';
+        disp('   10th order')
+     case 3
 % Order 8 - see the doc
-%  factors_deriv(1:5,1) = [4/9 1/36 40/27 25/54 0]';
-%  alpha = 344/1179; factors_deriv(1:5,2) = [alpha (38*alpha-9)/214 (696-1191*alpha)/428 (2454*alpha-294)/535 0]';
+        factors_deriv(1:5,1) = [4/9 1/36 40/27 25/54 0]';
+        alpha = 344/1179;
+        factors_deriv(1:5,2) = [alpha (38*alpha-9)/214 (696-1191*alpha)/428 (2454*alpha-294)/535 0]';
+        disp('   8th order')
+     case 4
 % Order 6 - see the doc
-%  alpha = 1/3;  beta=0; factors_deriv(1:5,1) = [alpha beta (9+alpha-20*beta)/6 (-9+32*alpha+62*beta)/15 (1-3*alpha+12*beta)/10]';
-%  alpha = 2/11; beta=0; factors_deriv(1:5,2) = [alpha beta (6-9*alpha-12*beta)*0.25 (-3+24*alpha-6*beta)*0.2 (2-11*alpha+124*beta)/20]';
+        alpha = 1/3;  beta=0;
+        factors_deriv(1:5,1) = [alpha beta (9+alpha-20*beta)/6 (-9+32*alpha+62*beta)/15 (1-3*alpha+12*beta)/10]';
+        alpha = 2/11; beta=0;
+        factors_deriv(1:5,2) = [alpha beta (6-9*alpha-12*beta)*0.25 (-3+24*alpha-6*beta)*0.2 (2-11*alpha+124*beta)/20]';
+        disp('   6th order')
+     case 5
 % Order 4 central scheme - see the doc
-%  alpha = 0; beta=0; factors_deriv(1:5,1) = [0 0 2*(2+alpha)/3 (4*alpha-1)/3  0]';
-%  alpha = 0; beta=0; factors_deriv(1:5,2) = [0 0 4*(1-alpha)/3 (10*alpha-1)/3  0]';
+        alpha = 0; beta=0;
+        factors_deriv(1:5,1) = [0 0 2*(2+alpha)/3 (4*alpha-1)/3  0]';
+        alpha = 0; beta=0;
+        factors_deriv(1:5,2) = [0 0 4*(1-alpha)/3 (10*alpha-1)/3  0]';
+        disp('   4th order')
+     case 6
 % Order 2 central scheme - see the doc
-%  factors_deriv(1:5,1) = [0 0 1 0  0]';
-%  factors_deriv(1:5,2) = [0 0 1 0  0]';
-
+        factors_deriv(1:5,1) = [0 0 1 0  0]';
+        factors_deriv(1:5,2) = [0 0 1 0  0]';
+        disp('   2nd order')
+     otherwise
+        disp('Unknown kind of compact scheme, exiting the code...')
+        return
+  end
+  disp('*********************************************************************')  
+  
 % Scale the factors
   factors_deriv(3,1) = factors_deriv(3,1)/(2*h); factors_deriv(4,1) = factors_deriv(4,1)/(4*h);   factors_deriv(5,1) = factors_deriv(5,1)/(6*h); 
   factors_deriv(3,2) = factors_deriv(3,2)/(h*h); factors_deriv(4,2) = factors_deriv(4,2)/(4*h*h); factors_deriv(5,2) = factors_deriv(5,2)/(9*h*h); 
@@ -142,8 +164,9 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
         plot((0:(i-1))*deltat,kinEnergy(1:i),'b','Linewidth',3)
         grid on; xlabel('Time'); ylabel('E(t)')
         xlim([0 time])
-         
+        
         subplot(2,2,2)
+%        subplot(1,2,2)
         loglog(0:(N/2-1),spectralEnergy(1:(N/2))/nbrPointsStatistics,'r','Linewidth',3, reference_spectrum(:,1),reference_spectrum(:,2),'b','Linewidth',3)
         grid on; xlabel('k'); ylabel('E(k)')
         xlim([1 reference_spectrum(end,1)])
@@ -152,7 +175,7 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
         plot((0:(i-1))*deltat,energy_conv(1:i),'b','Linewidth',3)
         grid on; xlabel('Time'); ylabel('E_{prod}(t)')
         xlim([0 time])
-            
+        
         drawnow;
     end
     
@@ -169,8 +192,7 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
 %  relative_error
   
    spectralEnergyOut = spectralEnergy(1:(N/2))/nbrPointsStatistics;
-%   filename2=strcat('Spectral_energy_',name,'.mat');
-   filename2=strcat('Energie_Spectrale_',name,'.mat');
+   filename2=strcat('Spectral_energy_',name,'.mat');
    save(filename2,'-ascii','spectralEnergyOut');
   
   %filename=strcat('Energy_',name,'.mat');
