@@ -1,4 +1,4 @@
-function FD_conservative_order4 (N,nu,constant_sub,filter,L,time,nbrpointtemp,name,file_spectrum)
+function FD_conservative_order4 (N,nu,constant_sub,filter,L,time,nbrpointtemp,name,file_spectrum,order_visc)
 % Solve the 1D forced Burgers equation with the energy conservative Hs scheme of 
 % order 4 for the convective term
 % The unknown of the equation is the velocity, thus 1 unknown per node
@@ -56,7 +56,7 @@ function FD_conservative_order4 (N,nu,constant_sub,filter,L,time,nbrpointtemp,na
     
 %******** Call Runge-Kutta and compute kinematic energy ********
     [u(:,z),dynamic_smag_constant(i-1)] = ...
-              RK4_FD_conservative_order4 (u(:,z-1),deltat,N,nu,F,h,constant_sub,ind,filter);
+              RK4_FD_conservative_order4 (u(:,z-1),deltat,N,nu,F,h,constant_sub,ind,filter,order_visc);
 
     kinEnergy(i) = h*0.5*u(:,z)'*u(:,z);
         
@@ -138,7 +138,7 @@ function FD_conservative_order4 (N,nu,constant_sub,filter,L,time,nbrpointtemp,na
   
 end
 
-function [y,dynamic_sub] = RK4_FD_conservative_order4 (u,deltat,N,nu,F,h,constant_sub,ind,filter)
+function [y,dynamic_sub] = RK4_FD_conservative_order4 (u,deltat,N,nu,F,h,constant_sub,ind,filter,order_visc)
 % Temporal integration of the 1D Burgers equation with an explicit 4 steps Runge-Kutta scheme
 % Spatial discretization with an energy conservative Hs scheme of 
 % order 4 for the convective term
@@ -165,35 +165,41 @@ function [y,dynamic_sub] = RK4_FD_conservative_order4 (u,deltat,N,nu,F,h,constan
      dynamic_sub = constant_sub ;
   end
   
+  switch order_visc
+       case 2
+           function_visc = 'get_second_derivative_order2' ;
+       case 4
+           function_visc = 'get_second_derivative_order4' ;
+       case 6
+           function_visc = 'get_second_derivative_order6' ;
+       otherwise
+           disp('Unknown kind of viscous scheme, exiting the code...')
+           return
+  end
+
+  function_handle_viscous   = str2func(function_visc) ;
+  
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Second step
   C      = get_nonlinear_term(Un,ind,constant_sub,h,N);
-%  du2dx2 = nu * get_second_derivative_order2( Un , ind(:,4:6) , h ) ;
-  du2dx2 = nu * get_second_derivative_order4( Un , ind(:,3:7) , h ) ;
-%  du2dx2 = nu * get_second_derivative_order6( Un , ind(:,2:8) , h ) ;
+  du2dx2 = nu * function_handle_viscous( Un , ind , h ) ;
 	k1     = du2dx2 + C;
   Un2    = Un + deltat*0.5*k1 ;
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Third step
   C      = get_nonlinear_term(Un2,ind,constant_sub,h,N);
-%  du2dx2 = nu * get_second_derivative_order2( Un2 , ind(:,4:6) , h ) ;
-  du2dx2 = nu * get_second_derivative_order4( Un2 , ind(:,3:7) , h ) ;
-%  du2dx2 = nu * get_second_derivative_order6( Un2 , ind(:,2:8) , h ) ;
+  du2dx2 = nu * function_handle_viscous( Un2 , ind , h ) ;
 	k2     = du2dx2 + C;
   Un3    = Un + deltat*0.5*k2;
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fourth step
   C      = get_nonlinear_term(Un3,ind,constant_sub,h,N);
-%  du2dx2 = nu * get_second_derivative_order2( Un3 , ind(:,4:6) , h ) ;
-  du2dx2 = nu * get_second_derivative_order4( Un3 , ind(:,3:7) , h ) ;
-%  du2dx2 = nu * get_second_derivative_order6( Un3 , ind(:,2:8) , h ) ;
+  du2dx2 = nu * function_handle_viscous( Un3 , ind , h ) ;
 	k3     = du2dx2 + C;
   Un4    = Un + deltat*k3;
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fifth step
   C      = get_nonlinear_term(Un4,ind,constant_sub,h,N);
-%  du2dx2 = nu * get_second_derivative_order2( Un4 , ind(:,4:6) , h ) ;
-  du2dx2 = nu * get_second_derivative_order4( Un4 , ind(:,3:7) , h ) ;
-%  du2dx2 = nu * get_second_derivative_order6( Un4 , ind(:,2:8) , h ) ;
+  du2dx2 = nu * function_handle_viscous( Un4 , ind , h ) ;
 	k4     = du2dx2 + C;
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -228,21 +234,24 @@ function dudx = get_first_derivative(Un,ind,h)
 endfunction
 
 function du2dx2 = get_second_derivative_order2(Un,ind,h)
-% ind has size (N,3)
-   du2dx2 = ( Un(ind(:,1)) - 2*Un(ind(:,2)) + Un(ind(:,3)) ) / (h*h) ;
+% i-4  i-3  i-2  i-1  i  i+1  i+2  i+3  i+4
+%  1    2    3    4   5   6    7    8    9
+   du2dx2 = ( Un(ind(:,4)) - 2*Un(ind(:,5)) + Un(ind(:,6)) ) / (h*h) ;
 endfunction
 
 function du2dx2 = get_second_derivative_order4(Un,ind,h)
-% ind has size (N,5)
-   du2dx2 = ( - Un(ind(:,1)) + 16*Un(ind(:,2)) - 30*Un(ind(:,3)) + ...
-                               16*Un(ind(:,4)) - Un(ind(:,5)) ) / (12*h*h) ;
+% i-4  i-3  i-2  i-1  i  i+1  i+2  i+3  i+4
+%  1    2    3    4   5   6    7    8    9
+   du2dx2 = ( - Un(ind(:,3)) + 16*Un(ind(:,4)) - 30*Un(ind(:,5)) + ...
+                               16*Un(ind(:,6)) - Un(ind(:,7)) ) / (12*h*h) ;
 endfunction
 
 function du2dx2 = get_second_derivative_order6(Un,ind,h)
-% ind has size (N,7)
-   du2dx2 = ( Un(ind(:,1))/90 - 3*Un(ind(:,2))/20 + 1.5*Un(ind(:,3)) - ...
-              49*Un(ind(:,4))/18 + 1.5*Un(ind(:,5)) - 3*Un(ind(:,6))/20 + ...
-              Un(ind(:,7))/90 ) / (h*h) ;
+% i-4  i-3  i-2  i-1  i  i+1  i+2  i+3  i+4
+%  1    2    3    4   5   6    7    8    9
+   du2dx2 = ( Un(ind(:,2))/90 - 3*Un(ind(:,3))/20 + 1.5*Un(ind(:,4)) - ...
+              49*Un(ind(:,5))/18 + 1.5*Un(ind(:,6)) - 3*Un(ind(:,7))/20 + ...
+              Un(ind(:,8))/90 ) / (h*h) ;
 endfunction
 
 function smooth = apply_filter(Un,ind,type)

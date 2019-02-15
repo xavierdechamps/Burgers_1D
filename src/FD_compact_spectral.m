@@ -1,4 +1,4 @@
-function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_spectrum,submethod)
+function FD_compact_spectral (N,nu,constant_sub,filter,L,time,nbrpointtemp,name,file_spectrum,submethod)
 % Solve the 1D forced Burgers equation with compact finite difference schemes
 % The unknown of the equation is the velocity, thus 1 unknown per node
 %
@@ -75,22 +75,24 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
   factors_deriv(3:5,2) = factors_deriv(3:5,2) * nu ;
   
 % Store the indices of the neighbour nodes i-3 i-2 i-1 i i+1 i+2 i+3 used in the derivatives
-  ind = zeros(N,7);
-  ind(:,4) = 1:N; % i
-  ind(:,3) = circshift(ind(:,4),1,1) ; % i-1
-  ind(:,2) = circshift(ind(:,4),2,1) ; % i-2
-  ind(:,1) = circshift(ind(:,4),3,1) ; % i-3
-  ind(:,5) = circshift(ind(:,4),-1,1); % i+1
-  ind(:,6) = circshift(ind(:,4),-2,1); % i+2
-  ind(:,7) = circshift(ind(:,4),-3,1); % i+3
+  ind = zeros(N,9);
+  ind(:,5) = 1:N; % i
+  ind(:,4) = circshift(ind(:,5),1,1) ; % i-1
+  ind(:,3) = circshift(ind(:,5),2,1) ; % i-2
+  ind(:,2) = circshift(ind(:,5),3,1) ; % i-3
+  ind(:,1) = circshift(ind(:,5),4,1) ; % i-4
+  ind(:,6) = circshift(ind(:,5),-1,1); % i+1
+  ind(:,7) = circshift(ind(:,5),-2,1); % i+2
+  ind(:,8) = circshift(ind(:,5),-3,1); % i+3
+  ind(:,9) = circshift(ind(:,5),-4,1); % i+4
   
 % Create the matrices to solve the system of equations for the first 
 % and second spatial derivatives
    mat_deriv1=zeros(N,N) ;
    mat_deriv2=zeros(N,N) ;
    for i=1:N
-      mat_deriv1(i, ind(i,2:6)) = [factors_deriv(2,1) , factors_deriv(1,1) , 1 , factors_deriv(1,1) , factors_deriv(2,1)] ;
-      mat_deriv2(i, ind(i,2:6)) = [factors_deriv(2,2) , factors_deriv(1,2) , 1 , factors_deriv(1,2) , factors_deriv(2,2)] ;
+      mat_deriv1(i, ind(i,3:7)) = [factors_deriv(2,1) , factors_deriv(1,1) , 1 , factors_deriv(1,1) , factors_deriv(2,1)] ;
+      mat_deriv2(i, ind(i,3:7)) = [factors_deriv(2,2) , factors_deriv(1,2) , 1 , factors_deriv(1,2) , factors_deriv(2,2)] ;
    endfor
    mat_deriv1 = sparse(mat_deriv1);
    mat_deriv2 = sparse(mat_deriv2);
@@ -108,6 +110,7 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
   spectralEnergy=zeros(N,1);
   reference_spectrum=load(file_spectrum);
 
+  dynamic_smag_constant = zeros(nbrpointtemp,1);
   for i=2:nbrpointtime+1   
 %***************** Forcing term with with-noise random phase ******************
     phi2=2*pi*rand();    phi3=2*pi*rand();
@@ -117,7 +120,8 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
 %    F = 0;
     
 %******** Call Runge-Kutta and compute kinematic energy ********
-    [u(:,z), energy_conv(i)] = RK4_FD_compact_spectral (u(:,z-1),deltat,N,mat_deriv1,mat_deriv2,F,h,constant_sub,factors_deriv,ind);
+    [u(:,z), energy_conv(i),dynamic_smag_constant(i-1)] = ...
+              RK4_FD_compact_spectral (u(:,z-1),deltat,N,mat_deriv1,mat_deriv2,F,h,constant_sub,factors_deriv,ind,filter);
     kinEnergy(i) = h*0.5*u(:,z)'*u(:,z);
         
     if (i*deltat>=timeBeforeStatistics)
@@ -171,11 +175,16 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
         grid on; xlabel('k'); ylabel('E(k)')
         xlim([1 reference_spectrum(end,1)])
         
-        subplot(2,2,4)
-        plot((0:(i-1))*deltat,energy_conv(1:i),'b','Linewidth',3)
-        grid on; xlabel('Time'); ylabel('E_{prod}(t)')
-        xlim([0 time])
+%        subplot(2,2,4)
+%        plot((0:(i-1))*deltat,energy_conv(1:i),'b','Linewidth',3)
+%        grid on; xlabel('Time'); ylabel('E_{prod}(t)')
+%        xlim([0 time])
         
+        subplot(2,2,4)
+        plot((1:(i-1))*deltat,dynamic_smag_constant(1:i-1),'b','Linewidth',3)
+        grid on; xlabel('Time'); ylabel('Smagorinsky C_s(t)') ;
+        xlim([0 time])
+         
         drawnow;
     end
     
@@ -188,8 +197,8 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
         break;
     end
     end
-      
-%  relative_error
+  
+    mean_Smagorinsky = mean(dynamic_smag_constant)
   
    spectralEnergyOut = spectralEnergy(1:(N/2))/nbrPointsStatistics;
    filename2=strcat('Spectral_energy_',name,'.mat');
@@ -200,7 +209,7 @@ function FD_compact_spectral (N,nu,constant_sub,L,time,nbrpointtemp,name,file_sp
   
 end
 
-function [y,energy] = RK4_FD_compact_spectral (u,deltat,N,mat_deriv1,mat_deriv2,F,h,constant_sub,factors_deriv,ind)
+function [y,energy,dynamic_sub] = RK4_FD_compact_spectral (u,deltat,N,mat_deriv1,mat_deriv2,F,h,constant_sub,factors_deriv,ind,filter)
 % Temporal integration of the 1D Burgers equation with an explicit 4 steps Runge-Kutta scheme
 % Spatial discretization with compact finite difference schemes
 % 
@@ -217,48 +226,57 @@ function [y,energy] = RK4_FD_compact_spectral (u,deltat,N,mat_deriv1,mat_deriv2,
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% First step
   Un = u;
   
+%%%%%% Get the Smagorinsky constant in case of dynamic model
+  if (filter>0)
+     kappa = 2; % filter ratio
+     dynamic_sub = get_dynamic_smagorinsky(Un,ind,h,kappa,filter,factors_deriv,mat_deriv1);
+     constant_sub = dynamic_sub ;
+  else
+     dynamic_sub = constant_sub ;
+  end
+  
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Second step
-  C = get_nonlinear_term(Un,ind,constant_sub,h,N,mat_deriv1,factors_deriv) ;
+  C = get_nonlinear_term(Un,ind(:,2:8),constant_sub,h,N,mat_deriv1,factors_deriv) ;
   
 % Second derivative for the viscous term
-  vec_deriv2 = get_second_derivative(Un,ind,factors_deriv);
+  vec_deriv2 = get_second_derivative(Un,ind(:,2:8),factors_deriv,mat_deriv2);
   
-  k1  = C + mat_deriv2\vec_deriv2 ;
+  k1  = C + vec_deriv2 ;
   Un2 = Un + deltat*0.5*k1;
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Third step
-  C = get_nonlinear_term(Un2,ind,constant_sub,h,N,mat_deriv1,factors_deriv) ;
+  C = get_nonlinear_term(Un2,ind(:,2:8),constant_sub,h,N,mat_deriv1,factors_deriv) ;
     
 % Second derivative for the viscous term
-  vec_deriv2 = get_second_derivative(Un2,ind,factors_deriv);
+  vec_deriv2 = get_second_derivative(Un2,ind(:,2:8),factors_deriv,mat_deriv2);
   
-  k2  = C + mat_deriv2\vec_deriv2 ;
+  k2  = C + vec_deriv2 ;
   Un3 = Un + deltat*0.5*k2;
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fourth step
-  C = get_nonlinear_term(Un3,ind,constant_sub,h,N,mat_deriv1,factors_deriv) ;
+  C = get_nonlinear_term(Un3,ind(:,2:8),constant_sub,h,N,mat_deriv1,factors_deriv) ;
     
 % Second derivative for the viscous term
-  vec_deriv2 = get_second_derivative(Un3,ind,factors_deriv);
+  vec_deriv2 = get_second_derivative(Un3,ind(:,2:8),factors_deriv,mat_deriv2);
 
-  k3  = C + mat_deriv2\vec_deriv2 ;
+  k3  = C + vec_deriv2 ;
   Un4 = Un + deltat*k3;
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fifth step
-  C = get_nonlinear_term(Un4,ind,constant_sub,h,N,mat_deriv1,factors_deriv) ;
+  C = get_nonlinear_term(Un4,ind(:,2:8),constant_sub,h,N,mat_deriv1,factors_deriv) ;
   
 % Second derivative for the viscous term
-  vec_deriv2 = get_second_derivative(Un4,ind,factors_deriv);
+  vec_deriv2 = get_second_derivative(Un4,ind(:,2:8),factors_deriv,mat_deriv2);
     
-  k4 = C + mat_deriv2\vec_deriv2 ;
+  k4 = C + vec_deriv2 ;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
   y = Un + deltat*(k1 + 2*k2 + 2*k3 +k4 )/6 + F;
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    
-%    energy = 0;
-    energy = get_energy(y,ind,mat_deriv1,mat_deriv2,factors_deriv,h,F);
+    energy = 0;
+%    energy = get_energy(y,ind(:,2:8),mat_deriv1,mat_deriv2,factors_deriv,h,F);
 
 endfunction
 
@@ -267,16 +285,14 @@ function vecC = get_nonlinear_term(Un,ind,constant_sub,h,N,mat_deriv1,factors_de
 %  1    2    3   4   5    6    7   
   
 % Convective term, first the divergence form
-   vec_derivUsquare = get_first_derivative( 0.5*Un.*Un , ind, factors_deriv );
-   nonlin_div       = mat_deriv1 \ vec_derivUsquare;
+   vec_derivUsquare = get_first_derivative( 0.5*Un.*Un , ind, factors_deriv,mat_deriv1 );
    
 % Convective term, then the advective form
-   vec_derivU = get_first_derivative( Un, ind, factors_deriv );
-   vec_derivU = mat_deriv1 \ vec_derivU ;
+   vec_derivU = get_first_derivative( Un, ind, factors_deriv,mat_deriv1 );
    nonlin_adv = Un .* vec_derivU ;
    
 % Convective term in skew-symmetric form
-   vecC = - ( nonlin_adv + 2*nonlin_div ) / 3 ;
+   vecC = - ( nonlin_adv + 2*vec_derivUsquare ) / 3 ;
    
 % Subgrid term
    if (constant_sub>0)     
@@ -296,7 +312,7 @@ function vecC = get_nonlinear_term(Un,ind,constant_sub,h,N,mat_deriv1,factors_de
    
 endfunction
 
-function dfdx = get_first_derivative(Un,ind,factors_deriv)
+function dfdx = get_first_derivative(Un,ind,factors_deriv,mat_deriv)
 % i-3  i-2  i-1  i  i+1  i+2  i+3
 %  1    2    3   4   5    6    7
 
@@ -304,13 +320,60 @@ function dfdx = get_first_derivative(Un,ind,factors_deriv)
   dfdx = factors_deriv(5,1) * ( Un(ind(:,7)) - Un(ind(:,1)) ) + ...
          factors_deriv(4,1) * ( Un(ind(:,6)) - Un(ind(:,2)) ) + ...
          factors_deriv(3,1) * ( Un(ind(:,5)) - Un(ind(:,3)) ) ;
+  dfdx = mat_deriv \ dfdx ;
 endfunction
 
-function d2fdx2 = get_second_derivative(Un,ind,factors_deriv)
+function d2fdx2 = get_second_derivative(Un,ind,factors_deriv,mat_deriv)
 % Compute the second spatial derivative with a compact finite difference scheme
   d2fdx2 = factors_deriv(5,2) * ( Un(ind(:,7)) -2*Un(ind(:,4)) + Un(ind(:,1)) ) + ...
            factors_deriv(4,2) * ( Un(ind(:,6)) -2*Un(ind(:,4)) + Un(ind(:,2)) ) + ...
-           factors_deriv(3,2) * ( Un(ind(:,5)) -2*Un(ind(:,4)) + Un(ind(:,3)) ) ;  
+           factors_deriv(3,2) * ( Un(ind(:,5)) -2*Un(ind(:,4)) + Un(ind(:,3)) ) ; 
+  d2fdx2 = mat_deriv \ d2fdx2;
+endfunction
+
+function smooth = apply_filter(Un,ind,type)
+% i-4  i-3  i-2  i-1  i  i+1  i+2  i+3  i+4
+%  1    2    3    4   5   6    7    8    9
+   switch type
+      case 1
+% Low-pass filter binomial over 3 points B2
+         smooth = 0.25 * ( Un(ind(:,4)) + 2*Un(ind(:,5)) + Un(ind(:,6)) ) ;
+      case 2
+% Low-pass filter binomial over 5 points B(2,1)
+         smooth = ( -Un(ind(:,3)) + 4*Un(ind(:,4)) + 10*Un(ind(:,5)) + 4*Un(ind(:,6)) - Un(ind(:,7)) )/16;
+      case 3
+% Low-pass filter binomial over 7 points B(3,1)
+         smooth = ( Un(ind(:,2)) - 6*Un(ind(:,3)) + 15*Un(ind(:,4)) + 44*Un(ind(:,5)) + ...
+                            15*Un(ind(:,6)) - 6*Un(ind(:,7)) + Un(ind(:,8)) )/64;
+      case 4
+% Low-pass filter binomial over 9 points B(4,1)
+         smooth = ( -Un(ind(:,1)) +8*Un(ind(:,2)) - 28*Un(ind(:,3)) + 56*Un(ind(:,4)) + 186*Un(ind(:,5)) + ...
+                     56*Un(ind(:,6)) - 28*Un(ind(:,7)) + 8*Un(ind(:,8)) - Un(ind(:,9)) )/256;
+      otherwise
+          disp("Unknown type of filter");
+          smooth = Un ;
+   end
+endfunction
+
+function dynamic_sub = get_dynamic_smagorinsky(Un,ind,h,kappa,filter,factors_deriv,mat_deriv)
+% Compute the Smagorinsky constant by a dynamic model
+% See "Evaluation of explicit and implicit LES closures for Burgers turbulence"
+% by R. Maulik and O. San, Journal of Computational and Applied Mathematics 327 (2018) 12-40
+   u_filter   = apply_filter(Un    ,ind,filter) ;
+   usq_filter = apply_filter(Un.*Un,ind,filter) ;
+   u_filtersq = u_filter.*u_filter;
+   
+   H = get_first_derivative( u_filtersq*0.5 , ind(:,2:8) ,factors_deriv,mat_deriv) - ...
+       get_first_derivative( usq_filter*0.5 , ind(:,2:8) ,factors_deriv,mat_deriv ) ;
+   
+   deriv_u_filter = get_first_derivative(u_filter,ind(:,2:8),factors_deriv,mat_deriv);
+   tmp1 = apply_filter(deriv_u_filter.*abs(deriv_u_filter),ind,filter);
+   
+   M = kappa*kappa*get_first_derivative( abs(deriv_u_filter).*deriv_u_filter , ind(:,2:8) ,factors_deriv,mat_deriv ) -...
+       get_first_derivative( tmp1 , ind(:,2:8) ,factors_deriv,mat_deriv );
+   
+   csdsq = sum(H.*M) / sum(M.*M); % (Cs * Delta)^2
+   dynamic_sub = sqrt(abs(csdsq)) / h ;
 endfunction
 
 function energy = get_energy(Un,ind,mat_deriv1,mat_deriv2,factors_deriv,h,F)
@@ -319,21 +382,18 @@ function energy = get_energy(Un,ind,mat_deriv1,mat_deriv2,factors_deriv,h,F)
   energy = 0;
   
 % Divergence form
-  vec_deriv1 = get_first_derivative( 0.5*Un.*Un ,ind,factors_deriv);
-  deriv1_u = mat_deriv1\vec_deriv1;
+  deriv1_u = get_first_derivative( 0.5*Un.*Un ,ind,factors_deriv,mat_deriv1);
   energy1 = h * Un' * deriv1_u;
     
 % Advective form
-  vec_deriv1 = get_first_derivative(Un,ind,factors_deriv);
-  deriv1_u = mat_deriv1\vec_deriv1;
+  deriv1_u = get_first_derivative(Un,ind,factors_deriv,mat_deriv1);
   energy2 = h * (Un .* Un)' * deriv1_u; 
 
 % Sum between advective and divergent forms for nonlinear term
   energy = energy - (2*energy1 + energy2)/3 ;
   
 % % Contribution for viscous dissipation
-%  vec_deriv2 = get_second_derivative(Un,ind,factors_deriv) ;
-%  deriv2_u = mat_deriv2\vec_deriv2;
+%  vec_deriv2 = get_second_derivative(Un,ind,factors_deriv,mat_deriv2) ;
 %  energy = energy + h * Un' * deriv2_u;
      
 % % Contribution of forcing term
