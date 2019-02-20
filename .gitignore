@@ -5,6 +5,7 @@
 *.pdf
 *.xls
 *.xlsx
+*.zip
 gnuplot*
 
 # Directory containing files that are not shared with GitHub

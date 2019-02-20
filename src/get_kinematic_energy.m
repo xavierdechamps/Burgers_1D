@@ -28,9 +28,9 @@ if (type==1) % Lagrange linear elements
    ind(:,2)   = 2:N+1; 
    ind(N,:) = [N 1];
    
-   for j=1:NG % Sommer sur tous les points de Gauss
-       energy = energy + w(j)* ( -(ksi(j)-1) * u(ind(:,1))' + (ksi(j)+1) * u(ind(:,2))' ) ...
-                             * ( -(ksi(j)-1) * u(ind(:,1))  + (ksi(j)+1) * u(ind(:,2))  );
+   for j=1:NG % Sum over all integration points
+       energy += w(j)* ( -(ksi(j)-1) * u(ind(:,1))' + (ksi(j)+1) * u(ind(:,2))' ) ...
+                     * ( -(ksi(j)-1) * u(ind(:,1))  + (ksi(j)+1) * u(ind(:,2))  );
    end
    energy = energy * h * eigth * half;
     

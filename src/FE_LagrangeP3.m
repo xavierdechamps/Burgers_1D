@@ -1,4 +1,4 @@
-function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,file_spectrum)
+function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,file_spectrum,submethod)
 % Solve the 1D forced Burgers equation with cubic Lagrange elements 
 % The unknown of the equation is the velocity, thus 1 unknown per node
 %
@@ -8,7 +8,6 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
 %************* Initialization of the parameters **************************
   disp("************************************************************")  
   disp("Finite element cubic Lagrange P3")
-  disp("************************************************************")
   
   length_vec = 3*N;
   h = L/N;% Length of the elements
@@ -18,19 +17,28 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
   nbrpointtime = nbrpointtemp;
   deltat       = time / nbrpointtime;
 
-% ******** Mass Mij and rigidity Kij matrices *************
-  Mij = h * [8/105    33/560  -3/140    19/1680  ;
-            33/560   27/70   -27/560  -3/140    ;
-           -3/140   -27/560   27/70    33/560   ;
-            19/1680 -3/140    33/560   8/105     ];
-
-% LUMPED MATRIX
-%  Mij = h * [210/1680     0         0          0     ;
-%              0      630/1680     0          0     ;
-%              0         0      630/1680      0     ;
-%              0         0         0       210/1680 ];
+  switch submethod
+        case 1
+             disp("   Full matrix formulation") ;
+             Mij = h * [8/105    33/560  -3/140    19/1680  ;
+                       33/560   27/70   -27/560  -3/140    ;
+                      -3/140   -27/560   27/70    33/560   ;
+                       19/1680 -3/140    33/560   8/105     ];
+        case 2
+             disp("   Lumped matrix formulation") ;
+             Mij = h * [210/1680     0         0          0     ;
+                         0      630/1680     0          0     ;
+                         0         0      630/1680      0     ;
+                         0         0         0       210/1680 ];
+        otherwise
+             disp('Unknown kind of formulation, exiting the code...')
+             return
+             
+  endswitch
               
+  disp("************************************************************")
               
+% ******** Rigidity Kij matrix *************  
   Kij = [ 37/10   -189/40   27/20   -13/40  ;
         -189/40   54/5    -297/40   27/20  ;
          27/20   -297/40   54/5    -189/40 ;
@@ -65,12 +73,14 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
   K(end,1)  += Kij(3,4); K(end-1,1) += Kij(2,4); K(end-2,1)+= Kij(1,4);
 
 % weights for numerical integration (4 points -> 6th order for the subgrid term)
-  w   = [  0.347854845137454  0.652145154862546  0.652145154862546  0.347854845137454 ];
+  weight_gauss   = [  0.347854845137454  0.652145154862546  0.652145154862546  0.347854845137454 ];
 % coordinates of point for numerical integration (4 points -> 6th order for the subgrid term)
-  ksi = [ -0.861136311594953 -0.339981043584856  0.339981043584856  0.861136311594953 ];
+  eta_gauss = [ -0.861136311594953 -0.339981043584856  0.339981043584856  0.861136311594953 ];
+  x_gauss = (eta_gauss+1)*h*0.5;  ;
+  
 % Analytical evaluation of the derivatives of the shape functions at the given integration points
-  for i=1:length(w)
-    d_shape_fct_vector(:,i) = get_deriv_shape_fct(ksi(i));    
+  for i=1:length(weight_gauss)
+    d_shape_fct_vector(:,i) = get_deriv_shape_fct(eta_gauss(i)) ;
   end
   
 % ************* Initial condition on the solution ************************
@@ -107,7 +117,7 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
 %      F = 0;
         
 %******** Call Runge-Kutta and compute kinematic energy ********
-    u(:,z)     = RK4_FE_Lagrangep3 (u(:,z-1),deltat,h,N,M,K,nu,F,constant_sub,ind,d_shape_fct_vector);
+    u(:,z)     = RK4_FE_Lagrangep3 (u(:,z-1),deltat,h,N,M,K,nu,F,constant_sub,ind,d_shape_fct_vector,weight_gauss);
     
 % kinematic energy not computed yet for the cubic Lagrange element
 %      kinEnergy(i) = get_kinematic_energy(h,DG,u(:,z),3*N,1);
@@ -198,7 +208,7 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
   
 end
 
-function y = RK4_FE_Lagrangep3 (u,deltat,h,N,M,K,nu,F,constant_sub,ind,d_shape_fct_vector)
+function y = RK4_FE_Lagrangep3 (u,deltat,h,N,M,K,nu,F,constant_sub,ind,d_shape_fct_vector,weight)
 % Temporal integration of the 1D Burgers equation with an explicit 4 steps Runge-Kutta scheme
 % Spatial discretization with cubic Lagrange elements
 % 
@@ -222,7 +232,7 @@ function y = RK4_FE_Lagrangep3 (u,deltat,h,N,M,K,nu,F,constant_sub,ind,d_shape_f
   Cj = get_non_linear_lagrange_P3(u1,u2,u3,u4,ind,N);
 % subgrid terms
   if (constant_sub>0)
-    Cj -= get_subgrid_terms(constant_sub,h,u1,u2,u3,u4,ind,N,d_shape_fct_vector) ;
+    Cj += get_subgrid_terms(constant_sub,h,u1,u2,u3,u4,ind,N,d_shape_fct_vector,weight) ;
   end
   k1 = - M \ (K*Un + Cj);
   Un2 = Un + deltat*0.5*k1;
@@ -233,7 +243,7 @@ function y = RK4_FE_Lagrangep3 (u,deltat,h,N,M,K,nu,F,constant_sub,ind,d_shape_f
   Cj = get_non_linear_lagrange_P3(u1,u2,u3,u4,ind,N);
 % subgrid terms
   if (constant_sub>0)
-    Cj -= get_subgrid_terms(constant_sub,h,u1,u2,u3,u4,ind,N,d_shape_fct_vector) ;
+    Cj += get_subgrid_terms(constant_sub,h,u1,u2,u3,u4,ind,N,d_shape_fct_vector,weight) ;
   end
   k2 = - M \ (K*Un2 + Cj);
   Un3 = Un + deltat*0.5*k2;
@@ -244,7 +254,7 @@ function y = RK4_FE_Lagrangep3 (u,deltat,h,N,M,K,nu,F,constant_sub,ind,d_shape_f
   Cj = get_non_linear_lagrange_P3(u1,u2,u3,u4,ind,N);
 % subgrid terms
   if (constant_sub>0)
-    Cj -= get_subgrid_terms(constant_sub,h,u1,u2,u3,u4,ind,N,d_shape_fct_vector) ;
+    Cj += get_subgrid_terms(constant_sub,h,u1,u2,u3,u4,ind,N,d_shape_fct_vector,weight) ;
   end
   k3 = - M \ (K*Un3 + Cj);
   Un4 = Un + deltat*k3;
@@ -255,7 +265,7 @@ function y = RK4_FE_Lagrangep3 (u,deltat,h,N,M,K,nu,F,constant_sub,ind,d_shape_f
   Cj = get_non_linear_lagrange_P3(u1,u2,u3,u4,ind,N);
 % subgrid terms
   if (constant_sub>0)
-    Cj -= get_subgrid_terms(constant_sub,h,u1,u2,u3,u4,ind,N,d_shape_fct_vector) ;
+    Cj += get_subgrid_terms(constant_sub,h,u1,u2,u3,u4,ind,N,d_shape_fct_vector,weight) ;
   end
   k4 = - M \ (K*Un4 + Cj);
   
@@ -282,27 +292,31 @@ function Cnonlinear = get_non_linear_lagrange_P3(u1,u2,u3,u4,ind,N)
 end 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function d_shape_fct = get_deriv_shape_fct(ksi)
-% Analytical expression of the derivative of the shape functions in the range -1 < ksi < 1
-  d_shape_fct = [  1 + 18*ksi - 27*ksi*ksi   ;
-                   81*ksi*ksi - 18*ksi - 27  ;
-                  -81*ksi*ksi - 18*ksi + 27  ;
-                   27*ksi*ksi + 18*ksi - 1   ;
+function d_shape_fct = get_deriv_shape_fct(eta)
+% Analytical expression of the derivative of the shape functions in the range -1 < eta < 1
+  d_shape_fct = [  1 + 18*eta - 27*eta*eta   ;
+                   81*eta*eta - 18*eta - 27  ;
+                  -81*eta*eta - 18*eta + 27  ;
+                   27*eta*eta + 18*eta - 1   ;
                 ] / 16 ;
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function Csubgrid = get_subgrid_terms(constant_sub,h,u1,u2,u3,u4,ind,N,deriv_shape)
+function Csubgrid = get_subgrid_terms(constant_sub,h,u1,u2,u3,u4,ind,N,deriv_shape,weight)
 % Compute the subgrid terms needed to model turbulence
   Csubgrid = zeros(3*N,1);
 %  factor = constant_sub * constant_sub * 0.125 ;
-  factor = constant_sub * constant_sub * h^3 * 0.5 ;
-  for i = 1:size(deriv_shape,2)
+%  factor = ( constant_sub * h )^2 ;
+  factor = constant_sub^2 * 2 * h ;
+  for i = 1:length(weight) % Loop over integration points
     deriv_u = deriv_shape(1,i) * u1 + deriv_shape(2,i) * u2 + ...
               deriv_shape(3,i) * u3 + deriv_shape(4,i) * u4 ;
-    Csubgrid(ind(:,1)) += factor * deriv_shape(1,i) * deriv_u .* abs(deriv_u);
-    Csubgrid(ind(:,2)) += factor * deriv_shape(2,i) * deriv_u .* abs(deriv_u);
-    Csubgrid(ind(:,3)) += factor * deriv_shape(3,i) * deriv_u .* abs(deriv_u);
-    Csubgrid(ind(:,4)) += factor * deriv_shape(4,i) * deriv_u .* abs(deriv_u);
+              
+    factor2 = weight(i) * factor * deriv_u .* abs(deriv_u);
+    
+    Csubgrid(ind(:,1)) += factor2 * deriv_shape(1,i) ;
+    Csubgrid(ind(:,2)) += factor2 * deriv_shape(2,i) ;
+    Csubgrid(ind(:,3)) += factor2 * deriv_shape(3,i) ;
+    Csubgrid(ind(:,4)) += factor2 * deriv_shape(4,i) ;
   end
 end
