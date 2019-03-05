@@ -111,6 +111,7 @@ function FD_compact_spectral (N,nu,constant_sub,filter,L,time,nbrpointtemp,name,
   reference_spectrum=load(file_spectrum);
 
   dynamic_smag_constant = zeros(nbrpointtemp,1);
+  diverged = false;
   for i=2:nbrpointtime+1   
 %***************** Forcing term with with-noise random phase ******************
     phi2=2*pi*rand();    phi3=2*pi*rand();
@@ -194,6 +195,7 @@ function FD_compact_spectral (N,nu,constant_sub,filter,L,time,nbrpointtemp,name,
 % Stability criterion for explicit Runge Kutta 4
     if (max(CFL)>2.8)
         disp(['Divergence of ',name]);
+        diverged = true;
         break;
     end
     end
@@ -202,8 +204,9 @@ function FD_compact_spectral (N,nu,constant_sub,filter,L,time,nbrpointtemp,name,
   
    spectralEnergyOut = spectralEnergy(1:(N/2))/nbrPointsStatistics;
    filename2=strcat('Spectral_energy_',name,'.mat');
-   save(filename2,'-ascii','spectralEnergyOut');
-  
+   if (~diverged)
+     save(filename2,'-ascii','spectralEnergyOut');
+   end
   %filename=strcat('Energy_',name,'.mat');
   %save(filename,'kinEnergy');
   

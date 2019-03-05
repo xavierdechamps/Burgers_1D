@@ -52,8 +52,8 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
   ind(end,4) = 1;
   
 % ************* Assemble the matrices (with periodic condition) ***********
-  M = sparse(length_vec,length_vec);
-  K = sparse(length_vec,length_vec);
+  M = zeros(length_vec,length_vec);
+  K = zeros(length_vec,length_vec);
   for i=1:N
     indmin = 3*i-2;
     indmax = 3*i+1;
@@ -71,7 +71,11 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
 
   K(1,end-2)+= Kij(4,1); K(1,end-1) += Kij(4,2); K(1,end)  += Kij(4,3); K(1,1) += Kij(4,4);
   K(end,1)  += Kij(3,4); K(end-1,1) += Kij(2,4); K(end-2,1)+= Kij(1,4);
-
+  
+  M = sparse(M); % Remove the unnecessary zeros
+  K = sparse(K);
+  
+% ************* Initialization for numerical integration *****************
 % weights for numerical integration (4 points -> 6th order for the subgrid term)
   weight_gauss   = [  0.347854845137454  0.652145154862546  0.652145154862546  0.347854845137454 ];
 % coordinates of point for numerical integration (4 points -> 6th order for the subgrid term)
@@ -108,6 +112,7 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
   %distance_sinus = zeros(1:nbrpointtime+1,1);
   %distance_sinus(1,1:4) = [0 maxU minU X(minInd)-X(maxInd)];
 
+  diverged = false;
   for i=2:nbrpointtime+1
 %***************** Forcing term with with-noise random phase ******************
     phi2   = 2*pi*rand();    phi3   = 2*pi*rand();
@@ -117,7 +122,7 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
 %      F = 0;
         
 %******** Call Runge-Kutta and compute kinematic energy ********
-    u(:,z)     = RK4_FE_Lagrangep3 (u(:,z-1),deltat,h,N,M,K,nu,F,constant_sub,ind,d_shape_fct_vector,weight_gauss);
+    u(:,z) = RK4_FE_Lagrangep3 (u(:,z-1),deltat,h,N,M,K,F,constant_sub,ind,d_shape_fct_vector,weight_gauss);
     
 % kinematic energy not computed yet for the cubic Lagrange element
 %      kinEnergy(i) = get_kinematic_energy(h,DG,u(:,z),3*N,1);
@@ -188,6 +193,7 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
 % Stability criterion for explicit Runge Kutta 4
     if (max(CFL)>2.8)
         disp(['Divergence of ',name]);
+        diverged = true;
         break;
     end
   end
@@ -195,9 +201,10 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
 %  relative_error
 
   spectralEnergyOut = spectralEnergy(1:((length_vec+1)/2))/nbrPointsStatistics;
-%  filename2=['Spectral_energy_',name,'.mat'];
-  filename2=['Energie_Spectrale_',name,'.mat'];
-  save(filename2,'spectralEnergyOut');
+  filename2=['Spectral_energy_',name,'.mat'];
+  if (~diverged)
+    save(filename2,'-ascii','spectralEnergyOut');
+  end
 
 %  Uinterpolated = Interpolation(u(:,end),h,N,2,Ninterpolation);%Raffinage de l'affichage
 %  tosave = [(0:1/(length(Uinterpolated)):1)' [Uinterpolated;Uinterpolated(1)]];
@@ -208,7 +215,7 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
   
 end
 
-function y = RK4_FE_Lagrangep3 (u,deltat,h,N,M,K,nu,F,constant_sub,ind,d_shape_fct_vector,weight)
+function y = RK4_FE_Lagrangep3 (u,deltat,h,N,M,K,F,constant_sub,ind,d_shape_fct_vector,weight)
 % Temporal integration of the 1D Burgers equation with an explicit 4 steps Runge-Kutta scheme
 % Spatial discretization with cubic Lagrange elements
 % 
@@ -228,9 +235,9 @@ function y = RK4_FE_Lagrangep3 (u,deltat,h,N,M,K,nu,F,constant_sub,ind,d_shape_f
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Second step
   u1 = Un(ind(:,1));  u2 = Un(ind(:,2));    u3 = Un(ind(:,3));    u4 = Un(ind(:,4));
-% nonlinear terms
+% convective term
   Cj = get_non_linear_lagrange_P3(u1,u2,u3,u4,ind,N);
-% subgrid terms
+% subgrid term
   if (constant_sub>0)
     Cj += get_subgrid_terms(constant_sub,h,u1,u2,u3,u4,ind,N,d_shape_fct_vector,weight) ;
   end

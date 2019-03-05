@@ -1,4 +1,4 @@
-function FE_HermiteH5(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,file_spectrum)
+function FE_HermiteH5(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,file_spectrum,submethod)
 % Solve the 1D forced Burgers equation with 5th order Hermite elements 
 % The unknowns are the velocity, the first and second spatial derivatives of the velocity,
 % thus 3 unknowns per node
@@ -9,7 +9,6 @@ function FE_HermiteH5(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
 %************* Initialization of the parameters **************************
   disp("************************************************************")  
   disp("Finite element 5th order Hermite H5")
-  disp("************************************************************")
 
   length_vec = 3*N;
   h  = L/N; % Length of the elements
@@ -32,25 +31,48 @@ function FE_HermiteH5(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
   ind(N,:) = [3*N-5 3*N-4 3*N-3 3*N-2 3*N-1 3*N 1 2 3];
   
 % ******** Mass Mij and rigidity Kij matrices *************
-  Mij= [ 181*h/462   311*(h^2)/4620   281*(h^3)/55440   25*h/231   -151*(h^2)/4620   181*(h^3)/55440 ;
-       311*(h^2)/4620  52*(h^3)/3465  23*(h^4)/18480  151*(h^2)/4620  -19*(h^3)/1980  13*(h^4)/13860 ;
-       281*(h^3)/55440  23*(h^4)/18480  (h^5)/9240  181*(h^3)/55440  -13*(h^4)/13860  (h^5)/11088 ;
-       25*h/231  151*(h^2)/4620  181*(h^3)/55440  181*h/462  -311*(h^2)/4620  281*(h^3)/55440 ;
-       -151*(h^2)/4620  -19*(h^3)/1980  -13*(h^4)/13860  -311*(h^2)/4620  52*(h^3)/3465  -23*(h^4)/18480 ;
-       181*(h^3)/55440  13*(h^4)/13860  (h^5)/11088  281*(h^3)/55440  -23*(h^4)/18480  (h^5)/9240
-  ];
-  
-  Kij=[10/(7*h)  3/14  h/84  -10/(7*h)  3/14  -h/84  ;
-     3/14  8*h/35  (h^2)/60  -3/14  -h/70  (h^2)/210 ;
-     h/84  (h^2)/60  (h^3)/630  -h/84  -(h^2)/210  (h^3)/1260 ;
-     -10/(7*h) -3/14  -h/84  10/(7*h) -3/14  h/84 ;
-     3/14  -h/70  -(h^2)/210  -3/14  8*h/35  -(h^2)/60 ;
-     -h/84  (h^2)/210  (h^3)/1260  h/84  -(h^2)/60  (h^3)/630
-  ];
+  switch submethod
+        case 1
+             disp("   Full matrix formulation") ;
+             
+             Mij= [ 21720    3732*h    281*h^2   6000    -1812*h   181*h^2 ;
+                     3732*h   832*h^2   69*h^3   1812*h   -532*h^2  52*h^3 ;
+                      281*h^2  69*h^3    6*h^4    181*h^2  -52*h^3   5*h^4 ;
+                     6000    1812*h    181*h^2  21720    -3732*h   281*h^2 ;
+                    -1812*h  -532*h^2  -52*h^3  -3732*h    832*h^2 -69*h^3 ;
+                      181*h^2  52*h^3    5*h^4    281*h^2  -69*h^3   6*h^4 ] * h / 55440 ;
+             
+%             Mij= [ 181*h/462   311*(h^2)/4620   281*(h^3)/55440   25*h/231   -151*(h^2)/4620   181*(h^3)/55440 ;
+%                    311*(h^2)/4620  52*(h^3)/3465  23*(h^4)/18480  151*(h^2)/4620  -19*(h^3)/1980  13*(h^4)/13860 ;
+%                    281*(h^3)/55440  23*(h^4)/18480  (h^5)/9240  181*(h^3)/55440  -13*(h^4)/13860  (h^5)/11088 ;
+%                    25*h/231  151*(h^2)/4620  181*(h^3)/55440  181*h/462  -311*(h^2)/4620  281*(h^3)/55440 ;
+%                  -151*(h^2)/4620  -19*(h^3)/1980  -13*(h^4)/13860  -311*(h^2)/4620  52*(h^3)/3465  -23*(h^4)/18480 ;
+%                    181*(h^3)/55440  13*(h^4)/13860  (h^5)/11088  281*(h^3)/55440  -23*(h^4)/18480  (h^5)/9240 ];
+
+        case 2
+             disp("   Lumped matrix formulation") ;
+             Mij= h * [ 0.5     0             0        0       0            0 ;
+                        0    (h^2)/184.8      0        0       0            0 ;
+                        0       0        (h^4)/5040    0       0            0 ;
+                        0       0             0       0.5      0            0 ;
+                        0       0             0        0  (h^2)/184.8       0 ;
+                        0       0             0        0       0       (h^4)/5040 ];
+        otherwise
+             disp('Unknown kind of formulation, exiting the code...')
+             return
+  endswitch
+  disp("************************************************************")
+
+  Kij = [10/(7*h)  3/14  h/84  -10/(7*h)  3/14  -h/84  ;
+          3/14   8*h/35  (h^2)/60  -3/14  -h/70  (h^2)/210 ;
+          h/84  (h^2)/60  (h^3)/630  -h/84  -(h^2)/210  (h^3)/1260 ;
+        -10/(7*h) -3/14  -h/84  10/(7*h) -3/14  h/84 ;
+          3/14  -h/70  -(h^2)/210  -3/14  8*h/35  -(h^2)/60 ;
+         -h/84  (h^2)/210  (h^3)/1260  h/84  -(h^2)/60  (h^3)/630 ] * nu ;
 
 % ************* Assemble the matrices (with periodic condition) ***********
-  M=sparse(length_vec,length_vec);
-  K=sparse(length_vec,length_vec);
+  M=zeros(length_vec,length_vec);
+  K=zeros(length_vec,length_vec);
   for i=1:3:length_vec-3
     M(i:i+5,i:i+5)=M(i:i+5,i:i+5)+Mij;
     K(i:i+5,i:i+5)=K(i:i+5,i:i+5)+Kij;
@@ -64,7 +86,12 @@ function FE_HermiteH5(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
   K(3*N-2:3*N,1:3)       = K(3*N-2:3*N,1:3)       + Kij(1:3,4:6);
   K(1:3,1:3)             = K(1:3,1:3)             + Kij(4:6,4:6);
   K(1:3,3*N-2:3*N)       = K(1:3,3*N-2:3*N)       + Kij(4:6,1:3);
-
+  M = sparse(M); % Remove the unnecessary zeros
+  K = sparse(K);
+  
+% ************* Initialization for numerical integration *****************  
+  [weight_gauss,eta_gauss,d_shape_fct_vector] = get_numerical_weights_positions_subgrid() ;
+  
 % ************* Initial condition on the solution ************************
 % Random solution for turbulent flow
   u(:,1)=2*rand(length_vec,1)-1;
@@ -85,6 +112,7 @@ function FE_HermiteH5(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
   nbrPointsStatistics=0;
   spectralEnergy=zeros(Ninterpolation*N,1);
   reference_spectrum=load(file_spectrum);
+  diverged = false;
 
   for i=2:nbrpointtime+1
 %***************** Forcing term with with-noise random phase ******************
@@ -97,7 +125,7 @@ function FE_HermiteH5(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
 %      F = 0;    
   
 %******** Call Runge-Kutta and compute kinematic energy ********
-    u(:,z) = RK4_FE_HermiteH5 (u(:,z-1),deltat,h,N,M,K,nu,F,constant_sub,ind);
+    u(:,z) = RK4_FE_HermiteH5 (u(:,z-1),deltat,h,N,M,K,F,constant_sub,ind,d_shape_fct_vector,weight_gauss);
 % kinematic energy not computed yet for the 5th order Hermite element
 %    kinEnergy(i)=CalculEnergie(h,DG,u(:,end),N,2);
     
@@ -157,6 +185,7 @@ function FE_HermiteH5(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
 % Stability criterion for explicit Runge Kutta 4
     if (max(CFL)>2.8)
         disp(['Divergence of ',name]);
+        diverged = true;
         break;
     end
   end
@@ -164,8 +193,11 @@ function FE_HermiteH5(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
 %  relative_error
 
   spectralEnergyOut = spectralEnergy(1:((length_vec+1)/2))/nbrPointsStatistics;
-  filename2=strcat('Spectral_energy_',name,'.mat');
-  save(filename2,'spectralEnergyOut');
+%  filename2=strcat('Spectral_energy_',name,'.mat');
+  filename2=['Energie_Spectrale_',name,'.mat'];
+  if (~diverged)
+    save(filename2,'-ascii','spectralEnergyOut');
+  end
   
 %  Uinterpolated = Interpolation(u(:,end),h,N,3,Ninterpolation);
 %  tosave = [(0:1/(length(Uinterpolated)):1)' [Uinterpolated;Uinterpolated(1)]];
@@ -176,7 +208,7 @@ function FE_HermiteH5(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
   
 end
 
-function y = RK4_FE_HermiteH5 (u,deltat,h,N,M,k,nu,F,constant_sub,ind)
+function y = RK4_FE_HermiteH5 (u,deltat,h,N,M,K,F,constant_sub,ind,d_shape_fct_vector,weight)
 % Temporal integration of the 1D Burgers equation with an explicit 4 steps Runge-Kutta scheme
 % Spatial discretization with 5th order Hermite elements
 % 
@@ -194,38 +226,48 @@ function y = RK4_FE_HermiteH5 (u,deltat,h,N,M,k,nu,F,constant_sub,ind)
   
   Un=u;
 
-%  w   = [  0.347854845137454  0.652145154862546  0.652145154862546  0.347854845137454 ]; % weight for numerical integration
-%    ksi = [ -0.861136311594953 -0.339981043584856  0.339981043584856  0.861136311594953 ]; % coordinate of point for numerical integration
-%    for i=1:length(w)
-%    d_shape_fct_vector(:,i) = get_deriv_shape_fct(ksi(i));    
-%  end
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Second step
+% convective term
   Cj = get_non_linear_hermite_H5(Un,ind,N,h) ;
-%  Cj += constant_sub * h *h * get_subgrid_terms(h,Un2,ind,N,d_shape_fct_vector);
-    
-  k1 = - M \ (nu*k*Un + Cj);
+% subgrid term
+  if (constant_sub>0)
+     Cj += get_subgrid_terms(constant_sub,h,Un,ind,N,d_shape_fct_vector,weight);
+  end
+  
+  k1 = - M \ (K*Un + Cj);
   Un2 = Un + deltat*0.5*k1;
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Third step
+% convective term
   Cj = get_non_linear_hermite_H5(Un2,ind,N,h) ;
-%  Cj += constant_sub * h *h * get_subgrid_terms(h,Un2,ind,N,d_shape_fct_vector);
+% subgrid term
+  if (constant_sub>0)
+     Cj += get_subgrid_terms(constant_sub,h,Un2,ind,N,d_shape_fct_vector,weight);
+  end
   
-  k2 = - M \ (nu*k*Un2 + Cj);
+  k2 = - M \ (K*Un2 + Cj);
   Un3 = Un + deltat*0.5*k2;
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fourth step
+% convective term
   Cj = get_non_linear_hermite_H5(Un3,ind,N,h) ;
-%  Cj += constant_sub * h *h * get_subgrid_terms(h,Un3,ind,N,d_shape_fct_vector);
+% subgrid term
+  if (constant_sub>0)
+     Cj += get_subgrid_terms(constant_sub,h,Un3,ind,N,d_shape_fct_vector,weight);
+  end
   
-  k3 = - M \ (nu*k*Un3 + Cj);
+  k3 = - M \ (K*Un3 + Cj);
   Un4 = Un + deltat*k3;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fifth step
+% convective term
   Cj = get_non_linear_hermite_H5(Un4,ind,N,h) ;
-%  Cj += constant_sub * h *h * get_subgrid_terms(h,Un4,ind,N,d_shape_fct_vector);
+% subgrid term
+  if (constant_sub>0)
+     Cj += get_subgrid_terms(constant_sub,h,Un4,ind,N,d_shape_fct_vector,weight);
+  end
   
-  k4 = - M \ (nu*k*Un4 + Cj);
+  k4 = - M \ (K*Un4 + Cj);
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   y = Un + deltat*( k1 + 2*k2 + 2*k3 + k4 )/6 + F;
@@ -268,3 +310,122 @@ function Cnonlinear = get_non_linear_hermite_H5(Un,ind,N,h)
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function d_shape_fct = get_deriv_shape_fct(eta)
+% Analytical expression of the derivative of the shape functions
+	d_shape_fct = [ 15*( 2*eta^2 - eta^4 - 1 )/16    ;
+	               (-15*eta^4+4*eta^3+30*eta^2-12*eta-7)/16 ; %   * h/2
+                 (-5*eta^4+4*eta^3+6*eta^2-4*eta-1)/16 ;    %   * h^2 / 4
+	                15*( eta^4 - 2*eta^2 + 1 )/16 ;
+                 ((eta+1)^2 * (56*eta-15*(eta+1)^2+8))/16 ; %   * h/2
+                 ((eta+1)^2 * (-16*eta+5*(eta+1)^2-4))/16 ; %   * h^2/4
+	              ];
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function Csubgrid = get_subgrid_terms(constant_sub,h,Un,ind,N,deriv_shape,weight)
+% Compute the Smagorinsky subgrid term
+
+	Csubgrid = zeros(3*N,1);
+  u2 = Un(ind(:,4));  du2 = Un(ind(:,5));    ddu2 = Un(ind(:,6));
+  u3 = Un(ind(:,7));  du3 = Un(ind(:,8));    ddu3 = Un(ind(:,9));
+
+  factor = constant_sub^2 * 2 * h ;
+  factor_deriv = h * 0.5 ;
+  
+	for i = 1:length(weight) % Loop over the integration points
+		deriv_u = deriv_shape(1,i) * u2 + ...
+              deriv_shape(2,i) * du2 * factor_deriv + ...
+              deriv_shape(3,i) * ddu2 * factor_deriv * factor_deriv + ...
+              deriv_shape(4,i) * u3 + ...
+              deriv_shape(5,i) * du3 * factor_deriv + ...
+              deriv_shape(6,i) * ddu3 * factor_deriv * factor_deriv ;
+              
+	  factor2 = weight(i) * factor * deriv_u .* abs(deriv_u);
+    
+		Csubgrid(ind(:,4)) += factor2 * deriv_shape(1,i) ;
+		Csubgrid(ind(:,5)) += factor2 * deriv_shape(2,i) ;%* factor_deriv  ;
+		Csubgrid(ind(:,6)) += factor2 * deriv_shape(3,i) ;%* factor_deriv * factor_deriv  ;
+		Csubgrid(ind(:,7)) += factor2 * deriv_shape(4,i) ;
+		Csubgrid(ind(:,8)) += factor2 * deriv_shape(5,i) ;%* factor_deriv  ;
+		Csubgrid(ind(:,9)) += factor2 * deriv_shape(6,i) ;%* factor_deriv * factor_deriv  ;
+	end
+	
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [weight,position,d_shape_fct] = get_numerical_weights_positions_subgrid()
+ 
+ weight = [0.0937684461602100	
+           0.0933564260655961	
+           0.0933564260655961	
+           0.0921239866433168	
+           0.0921239866433168	
+           0.0900819586606386	
+           0.0900819586606386	
+           0.0872482876188443	
+           0.0872482876188443	
+           	0.0836478760670387
+           	0.0836478760670387
+           	0.0793123647948867
+           	0.0793123647948867
+           	0.0742798548439541
+           	0.0742798548439541
+           	0.0685945728186567
+           	0.0685945728186567
+           	0.0623064825303175
+           	0.0623064825303175
+           	0.0554708466316636
+           	0.0554708466316636
+           	0.0481477428187117
+           	0.0481477428187117
+           	0.0404015413316696
+           	0.0404015413316696
+           	0.0323003586323290
+           	0.0323003586323290
+           	0.0239155481017495
+           	0.0239155481017495
+           	0.0153217015129347
+           	0.0153217015129347
+           	0.0066062278475874
+           	0.0066062278475874 ];
+
+ position = [ 0.0000000000000000
+              -0.0936310658547334
+              0.0936310658547334
+              -0.1864392988279916
+              0.1864392988279916
+              -0.2776090971524970
+              0.2776090971524970
+              -0.3663392577480734
+              0.3663392577480734
+               -0.4518500172724507
+              	0.4518500172724507
+               -0.5333899047863476
+              	0.5333899047863476
+               -0.6102423458363790
+              	0.6102423458363790
+               -0.6817319599697428
+              	0.6817319599697428
+               -0.7472304964495622
+              	0.7472304964495622
+               -0.8061623562741665
+              	0.8061623562741665
+               -0.8580096526765041
+              	0.8580096526765041
+               -0.9023167677434336
+              	0.9023167677434336
+               -0.9386943726111684
+              	0.9386943726111684
+               -0.9668229096899927
+              	0.9668229096899927
+               -0.9864557262306425
+              	0.9864557262306425
+               -0.9974246942464552
+              	0.9974246942464552 ] ;
+             
+% Analytical evaluation of the derivatives of the shape functions at the given integration points
+  for i=1:length(weight)
+    d_shape_fct(:,i) = get_deriv_shape_fct(position(i)) ;
+  end
+ 
+endfunction

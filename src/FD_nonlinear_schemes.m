@@ -45,6 +45,7 @@ function FD_nonlinear_schemes (N,nu,constant_sub,L,time,nbrpointtemp,name,file_s
   ind(:,8) = circshift(ind(:,5),-3,1); % i+3
   ind(:,9) = circshift(ind(:,5),-4,1); % i+4
   
+  diverged = false;
   for i=2:nbrpointtime+1   
 %***************** Forcing term with with-noise random phase ******************
     phi2=2*pi*rand();    phi3=2*pi*rand();
@@ -117,6 +118,7 @@ function FD_nonlinear_schemes (N,nu,constant_sub,L,time,nbrpointtemp,name,file_s
 % Stability criterion for explicit Runge Kutta 4
     if (max(CFL)>2.8)
         disp(['Divergence of ',name]);
+        diverged = true;
         break;
     end
   end
@@ -125,7 +127,9 @@ function FD_nonlinear_schemes (N,nu,constant_sub,L,time,nbrpointtemp,name,file_s
   
   spectralEnergyOut = spectralEnergy(1:(N/2))/nbrPointsStatistics;
   filename2=strcat('Spectral_energy_',name,'.mat');
-  save(filename2,'spectralEnergyOut');
+  if (~diverged)
+    save(filename2,'-ascii','spectralEnergyOut');
+  end
   
   %filename=strcat('Energy_',name,'.mat');
   %save(filename,'kinEnergy');

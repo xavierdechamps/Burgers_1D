@@ -62,6 +62,7 @@ function FE_LagrangeP1(N,nu,constant_sub,L,time,nbrpointtemp,name,file_spectrum)
   %distance_sinus = zeros(1:nbrpointtime+1,1);
   %distance_sinus(1,1:4) = [0 maxU minU X(minInd)-X(maxInd)];
 
+  diverged = false;
   for i=2:nbrpointtime+1
 %***************** Forcing term with with-noise random phase ******************
     phi2   = 2*pi*rand();    phi3   = 2*pi*rand();
@@ -138,6 +139,7 @@ function FE_LagrangeP1(N,nu,constant_sub,L,time,nbrpointtemp,name,file_spectrum)
 % Stability criterion for explicit Runge Kutta 4
     if (max(CFL)>2.8)
         disp(['Divergence of ',name]);
+        diverged = true;
         break;
     end
   end
@@ -146,7 +148,9 @@ function FE_LagrangeP1(N,nu,constant_sub,L,time,nbrpointtemp,name,file_spectrum)
 
   spectralEnergyOut = spectralEnergy(1:(N/2))/nbrPointsStatistics;
   filename2=strcat('Spectral_energy_',name,'.mat');
-  save(filename2,'spectralEnergyOut');
+  if (~diverged)
+    save(filename2,'-ascii','spectralEnergyOut');
+  end
 
 %  tosave = [X u(:,end)];
 %  save(strcat(name,'.mat'),'tosave');
