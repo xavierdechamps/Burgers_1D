@@ -90,13 +90,13 @@ function FD_dissipative_order2 (N,nu,constant_sub,filter,L,time,nbrpointtemp,nam
         end
        
         subplot(2,2,1)
-        plot([X;X(end)+h]/L, [uu; uu(1)],'Linewidth',3)
+        plot([X;X(end)+h]/L, [uu; uu(1)],'b','Linewidth',3)
         grid on; xlabel('x/(2*\pi)'); ylabel('u(t)')
         xlim([0 1])
         title(strcat('Time= ',num2str(i*deltat),', Re= ',num2str(mean(uu)*L/nu)))
         
         subplot(2,2,3)
-        plot((0:(i-1))*deltat,kinEnergy(1:i),'Linewidth',3)
+        plot((0:(i-1))*deltat,kinEnergy(1:i),'b','Linewidth',3)
         grid on; xlabel('Time'); ylabel('E(t)')
         xlim([0 time])
          
@@ -106,7 +106,15 @@ function FD_dissipative_order2 (N,nu,constant_sub,filter,L,time,nbrpointtemp,nam
         xlim([1 reference_spectrum(end,1)])
          
         subplot(2,2,4)
-        plot((1:(i-1))*deltat,dynamic_smag_constant(1:i-1),'Linewidth',3)
+        mean_Smagorinsky = mean(dynamic_smag_constant(1:i-1));
+        standard_deviation = std(dynamic_smag_constant(1:i-1));
+        standard_deviationp = mean_Smagorinsky + standard_deviation;
+        standard_deviationm = mean_Smagorinsky - standard_deviation;
+        plot((1:(i-1))*deltat,dynamic_smag_constant(1:i-1),'b','Linewidth',3) ; hold on;
+        plot([1 (i-1)]*deltat,[mean_Smagorinsky mean_Smagorinsky],       'r-', 'Linewidth',3);
+        plot([1 (i-1)]*deltat,[standard_deviationp standard_deviationp],'r--','Linewidth',3);
+        plot([1 (i-1)]*deltat,[standard_deviationm standard_deviationm],'r--','Linewidth',3);
+        hold off;
         grid on; xlabel('Time'); ylabel('Smagorinsky C_s(t)') ;
         xlim([0 time])
         
@@ -125,6 +133,7 @@ function FD_dissipative_order2 (N,nu,constant_sub,filter,L,time,nbrpointtemp,nam
   end
   
   mean_Smagorinsky = mean(dynamic_smag_constant)
+  standard_deviation = std(dynamic_smag_constant)
 
   spectralEnergyOut = spectralEnergy(1:(N/2))/nbrPointsStatistics;
   filename2=strcat('Spectral_energy_',name,'.mat');
@@ -248,19 +257,31 @@ function dynamic_sub = get_dynamic_smagorinsky(Un,ind,h,kappa,filter)
 % Compute the Smagorinsky constant by a dynamic model
 % See "Evaluation of explicit and implicit LES closures for Burgers turbulence"
 % by R. Maulik and O. San, Journal of Computational and Applied Mathematics 327 (2018) 12-40
-   u_filter   = apply_filter(Un    ,ind,filter) ;
-   usq_filter = apply_filter(Un.*Un,ind,filter) ;
-   u_filtersq = u_filter.*u_filter;
+##   u_filter   = apply_filter(Un    ,ind,filter) ;
+##   usq_filter = apply_filter(Un.*Un,ind,filter) ;
+##   u_filtersq = u_filter.*u_filter;
+##   
+##   H = get_first_derivative( u_filtersq*0.5 , ind(:,4:6) , h) - ...
+##       get_first_derivative( usq_filter*0.5 , ind(:,4:6) , h ) ;
+##   
+##   deriv_u_filter = get_first_derivative(u_filter,ind(:,4:6),h);
+##   tmp1 = apply_filter(deriv_u_filter.*abs(deriv_u_filter),ind,filter);
+##   
+##   M = kappa*kappa*get_first_derivative( abs(deriv_u_filter).*deriv_u_filter , ind(:,4:6) , h ) -...
+##       get_first_derivative( tmp1 , ind(:,4:6) , h );
+##   
+##   csdsq = sum(H.*M) / sum(M.*M); % (Cs * Delta)^2
+##   dynamic_sub = sqrt(abs(csdsq)) / h ;
    
-   H = get_first_derivative( u_filtersq*0.5 , ind(:,4:6) , h) - ...
-       get_first_derivative( usq_filter*0.5 , ind(:,4:6) , h ) ;
+% New method
+   u_filter = apply_filter(Un ,ind,filter) ;
+   L        = apply_filter(Un.*Un ,ind,filter) - u_filter.*u_filter ;
    
-   deriv_u_filter = get_first_derivative(u_filter,ind(:,4:6),h);
-   tmp1 = apply_filter(deriv_u_filter.*abs(deriv_u_filter),ind,filter);
+   deriv_u  =  get_first_derivative(Un,ind(:,4:6),h);
+   deriv_u_filter = apply_filter(deriv_u,ind,filter);
+   M = kappa*kappa* deriv_u_filter.*abs(deriv_u_filter) - ...
+       apply_filter( deriv_u .*abs(deriv_u) ,ind,filter) ;
    
-   M = kappa*kappa*get_first_derivative( abs(deriv_u_filter).*deriv_u_filter , ind(:,4:6) , h ) -...
-       get_first_derivative( tmp1 , ind(:,4:6) , h );
-   
-   csdsq = sum(H.*M) / sum(M.*M); % (Cs * Delta)^2
+   csdsq       = 0.5 * sum(L.*M) / sum(M.*M); % (Cs * Delta)^2
    dynamic_sub = sqrt(abs(csdsq)) / h ;
 endfunction

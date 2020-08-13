@@ -1,4 +1,4 @@
-function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,file_spectrum,submethod)
+function FE_LagrangeP3(N,nu,constant_sub,filter,L,time,nbrpointtemp,Ninterpolation,name,file_spectrum,submethod)
 % Solve the 1D forced Burgers equation with cubic Lagrange elements 
 % The unknown of the equation is the velocity, thus 1 unknown per node
 %
@@ -35,6 +35,11 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
              return
              
   endswitch
+  
+  MijF = h * [8/105    33/560  -3/140    19/1680  ;
+              33/560   27/70   -27/560  -3/140    ;
+             -3/140   -27/560   27/70    33/560   ;
+              19/1680 -3/140    33/560   8/105     ];
               
   disp("************************************************************")
               
@@ -51,9 +56,24 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
   ind(:,4) = 4:3:3*N+1;
   ind(end,4) = 1;
   
+  % Store the indices of the neighbour nodes i-4 i-3 i-2 i-1 i i+1 i+2 i+3 i+4 used in the derivatives
+  indfilter = zeros(3*N,9);
+  indfilter(:,5) = 1:3*N; % i
+  indfilter(:,4) = circshift(indfilter(:,5),1,1) ; % i-1
+  indfilter(:,3) = circshift(indfilter(:,5),2,1) ; % i-2
+  indfilter(:,2) = circshift(indfilter(:,5),3,1) ; % i-3
+  indfilter(:,1) = circshift(indfilter(:,5),4,1) ; % i-4
+  indfilter(:,6) = circshift(indfilter(:,5),-1,1); % i+1
+  indfilter(:,7) = circshift(indfilter(:,5),-2,1); % i+2
+  indfilter(:,8) = circshift(indfilter(:,5),-3,1); % i+3
+  indfilter(:,9) = circshift(indfilter(:,5),-4,1); % i+4
+  
+  dynamic_smag_constant = zeros(nbrpointtemp,1);
+  
 % ************* Assemble the matrices (with periodic condition) ***********
-  M = zeros(length_vec,length_vec);
-  K = zeros(length_vec,length_vec);
+  M  = zeros(length_vec,length_vec);
+  MF = zeros(length_vec,length_vec);
+  K  = zeros(length_vec,length_vec);
   for i=1:N
     indmin = 3*i-2;
     indmax = 3*i+1;
@@ -62,18 +82,23 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
       indmax = 3*i; 
       indloc = 3;
     end
-    M(indmin:indmax,indmin:indmax) += Mij(1:indloc,1:indloc);
-    K(indmin:indmax,indmin:indmax) += Kij(1:indloc,1:indloc);
+    M(indmin:indmax,indmin:indmax)  += Mij(1:indloc,1:indloc);
+    MF(indmin:indmax,indmin:indmax) += MijF(1:indloc,1:indloc);
+    K(indmin:indmax,indmin:indmax)  += Kij(1:indloc,1:indloc);
   end
   % last element for periodicity
   M(1,end-2)+= Mij(4,1); M(1,end-1) += Mij(4,2); M(1,end)  += Mij(4,3); M(1,1) += Mij(4,4);
   M(end,1)  += Mij(3,4); M(end-1,1) += Mij(2,4); M(end-2,1)+= Mij(1,4);
 
+  MF(1,end-2)+= MijF(4,1); MF(1,end-1) += MijF(4,2); MF(1,end)  += MijF(4,3); MF(1,1) += MijF(4,4);
+  MF(end,1)  += MijF(3,4); MF(end-1,1) += MijF(2,4); MF(end-2,1)+= MijF(1,4);
+
   K(1,end-2)+= Kij(4,1); K(1,end-1) += Kij(4,2); K(1,end)  += Kij(4,3); K(1,1) += Kij(4,4);
   K(end,1)  += Kij(3,4); K(end-1,1) += Kij(2,4); K(end-2,1)+= Kij(1,4);
   
-  M = sparse(M); % Remove the unnecessary zeros
-  K = sparse(K);
+  M  = sparse(M); % Remove the unnecessary zeros
+  MF = sparse(MF);
+  K  = sparse(K);
   
 % ************* Initialization for numerical integration *****************
 % weights for numerical integration (4 points -> 6th order for the subgrid term)
@@ -122,7 +147,7 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
 %      F = 0;
         
 %******** Call Runge-Kutta and compute kinematic energy ********
-    u(:,z) = RK4_FE_Lagrangep3 (u(:,z-1),deltat,h,N,M,K,F,constant_sub,ind,d_shape_fct_vector,weight_gauss);
+    [u(:,z),dynamic_smag_constant(i-1)] = RK4_FE_Lagrangep3 (u(:,z-1),deltat,h,N,M,MF,K,F,constant_sub,ind,d_shape_fct_vector,weight_gauss,indfilter,filter);
     
 % kinematic energy not computed yet for the cubic Lagrange element
 %      kinEnergy(i) = get_kinematic_energy(h,DG,u(:,z),3*N,1);
@@ -180,10 +205,23 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
 %          plot((1:i)*deltat,kinEnergy(1:i))
 %          grid on; xlabel('Time'); ylabel('E(t)')
          
-          subplot(1,2,2);
+          subplot(2,2,2);
           loglog(0:((length_vec+1)/2-1),spectralEnergy(1:((length_vec+1)/2))/nbrPointsStatistics,'r','Linewidth',3, reference_spectrum(:,1),reference_spectrum(:,2),'b','Linewidth',3);
           grid on; xlabel('k'); ylabel('E(k)');
           xlim([1 reference_spectrum(end,1)])
+        
+          subplot(2,2,4)
+          mean_Smagorinsky = mean(dynamic_smag_constant(1:i-1));
+          standard_deviation = std(dynamic_smag_constant(1:i-1));
+          standard_deviationp = mean_Smagorinsky + standard_deviation;
+          standard_deviationm = mean_Smagorinsky - standard_deviation;
+          plot((1:(i-1))*deltat,dynamic_smag_constant(1:i-1),'b','Linewidth',3) ; hold on;
+          plot([1 (i-1)]*deltat,[mean_Smagorinsky mean_Smagorinsky],      'r-', 'Linewidth',3);
+          plot([1 (i-1)]*deltat,[standard_deviationp standard_deviationp],'r--','Linewidth',3);
+          plot([1 (i-1)]*deltat,[standard_deviationm standard_deviationm],'r--','Linewidth',3);
+          hold off;
+          grid on; xlabel('Time'); ylabel('Smagorinsky C_s(t)') ;
+          xlim([0 time])
         
           drawnow;
     end
@@ -198,6 +236,8 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
     end
   end
 
+  mean_Smagorinsky = mean(dynamic_smag_constant)
+  standard_deviation = std(dynamic_smag_constant)
 %  relative_error
 
   spectralEnergyOut = spectralEnergy(1:((length_vec+1)/2))/nbrPointsStatistics;
@@ -215,7 +255,7 @@ function FE_LagrangeP3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name
   
 end
 
-function y = RK4_FE_Lagrangep3 (u,deltat,h,N,M,K,F,constant_sub,ind,d_shape_fct_vector,weight)
+function [y,dynamic_sub] = RK4_FE_Lagrangep3 (u,deltat,h,N,M,MF,K,F,constant_sub,ind,d_shape_fct_vector,weight,indfilter,filter)
 % Temporal integration of the 1D Burgers equation with an explicit 4 steps Runge-Kutta scheme
 % Spatial discretization with cubic Lagrange elements
 % 
@@ -232,9 +272,18 @@ function y = RK4_FE_Lagrangep3 (u,deltat,h,N,M,K,F,constant_sub,ind,d_shape_fct_
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% First step
   Un = u;
+  u1 = Un(ind(:,1));  u2 = Un(ind(:,2));    u3 = Un(ind(:,3));    u4 = Un(ind(:,4));
+  
+%%%%%% Get the Smagorinsky constant in case of dynamic model
+  if (filter>0)
+     kappa = 2 ; % filter ratio
+     dynamic_sub = get_dynamic_smagorinsky(Un,u1,u2,u3,u4,ind,N,h,kappa,indfilter,filter);
+     constant_sub = dynamic_sub ;
+  else
+     dynamic_sub = constant_sub ;
+  end
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Second step
-  u1 = Un(ind(:,1));  u2 = Un(ind(:,2));    u3 = Un(ind(:,3));    u4 = Un(ind(:,4));
 % convective term
   Cj = get_non_linear_lagrange_P3(u1,u2,u3,u4,ind,N);
 % subgrid term
@@ -277,7 +326,7 @@ function y = RK4_FE_Lagrangep3 (u,deltat,h,N,M,K,F,constant_sub,ind,d_shape_fct_
   k4 = - M \ (K*Un4 + Cj);
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  y = Un + deltat*(k1 + 2*k2 + 2*k3 +k4 )/6 + F;
+  y = Un + deltat*(k1 + 2*k2 + 2*k3 +k4 )/6 + M\MF*F;
 end 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -309,6 +358,19 @@ function d_shape_fct = get_deriv_shape_fct(eta)
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function d_shape_fct = get_deriv_shape_fct_physical(h)
+% Analytical expression of the derivative of the shape functions in the range 0 < x < h
+  x = linspace(0., h, 4) ;
+  eta = 2.*x/h - 1. ;
+  d_shape_fct = [  1 + 18*eta - 27*eta.*eta   ;
+                   81*eta.*eta - 18*eta - 27  ;
+                  -81*eta.*eta - 18*eta + 27  ;
+                   27*eta.*eta + 18*eta - 1   ;
+                ] / 16 ;
+  d_shape_fct = d_shape_fct * 2/h;
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function Csubgrid = get_subgrid_terms(constant_sub,h,u1,u2,u3,u4,ind,N,deriv_shape,weight)
 % Compute the subgrid terms needed to model turbulence
   Csubgrid = zeros(3*N,1);
@@ -327,3 +389,56 @@ function Csubgrid = get_subgrid_terms(constant_sub,h,u1,u2,u3,u4,ind,N,deriv_sha
     Csubgrid(ind(:,4)) += factor2 * deriv_shape(4,i) ;
   end
 end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function smooth = apply_filter(Un,ind,type)
+% i-4  i-3  i-2  i-1  i  i+1  i+2  i+3  i+4
+%  1    2    3    4   5   6    7    8    9
+   switch type
+      case 1
+% Low-pass filter binomial over 3 points B2
+         smooth = 0.25 * ( Un(ind(:,4)) + 2*Un(ind(:,5)) + Un(ind(:,6)) ) ;
+      case 2
+% Low-pass filter binomial over 5 points B(2,1)
+         smooth = ( -Un(ind(:,3)) + 4*Un(ind(:,4)) + 10*Un(ind(:,5)) + 4*Un(ind(:,6)) - Un(ind(:,7)) )/16;
+      case 3
+% Low-pass filter binomial over 7 points B(3,1)
+         smooth = ( Un(ind(:,2)) - 6*Un(ind(:,3)) + 15*Un(ind(:,4)) + 44*Un(ind(:,5)) + ...
+                            15*Un(ind(:,6)) - 6*Un(ind(:,7)) + Un(ind(:,8)) )/64;
+      case 4
+% Low-pass filter binomial over 9 points B(4,1)
+         smooth = ( -Un(ind(:,1)) +8*Un(ind(:,2)) - 28*Un(ind(:,3)) + 56*Un(ind(:,4)) + 186*Un(ind(:,5)) + ...
+                     56*Un(ind(:,6)) - 28*Un(ind(:,7)) + 8*Un(ind(:,8)) - Un(ind(:,9)) )/256;
+      otherwise
+          disp("Unknown type of filter");
+          smooth = Un ;
+   end
+endfunction
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function dynamic_sub = get_dynamic_smagorinsky(Un,u1,u2,u3,u4,ind,N,h,kappa,indfilter,filter)
+% Compute the Smagorinsky constant by a dynamic model
+% See "Evaluation of explicit and implicit LES closures for Burgers turbulence"
+% by R. Maulik and O. San, Journal of Computational and Applied Mathematics 327 (2018) 12-40
+   u_filter = apply_filter(Un ,indfilter,filter) ;
+   L        = apply_filter(Un.*Un ,indfilter,filter) - u_filter.*u_filter ;
+   
+  deriv_shape = get_deriv_shape_fct_physical(h) ;
+  for i = 1:4
+     deriv_u(:,i) = deriv_shape(1,i) * u1 + deriv_shape(2,i) * u2 + ...
+                    deriv_shape(3,i) * u3 + deriv_shape(4,i) * u4 ;
+  end
+  % Average first point of element with last point of previous element
+  deriv_u(1:N,1) = 0.5 * ( deriv_u(1:N,1) + deriv_u([N,1:N-1],4) ); 
+  
+  % Assemble the full array at each node
+  deriv_u_full(1:3:3*N-2) = deriv_u(:,1);
+  deriv_u_full(2:3:3*N-1) = deriv_u(:,2);
+  deriv_u_full(3:3:3*N  ) = deriv_u(:,3);
+  
+  deriv_u_filter = apply_filter(deriv_u_full,indfilter,filter);
+  M = kappa*kappa* deriv_u_filter.*abs(deriv_u_filter) - apply_filter( deriv_u_full .*abs(deriv_u_full) ,indfilter,filter) ;
+  
+  csdsq = 0.5 *M*L / sum(M.*M) ; % (Cs * Delta)^2
+  dynamic_sub = sqrt(abs(csdsq)) / h ;
+endfunction

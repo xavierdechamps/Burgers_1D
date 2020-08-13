@@ -33,6 +33,12 @@ function FE_HermiteH3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
              disp('Unknown kind of formulation, exiting the code...')
              return
   endswitch
+  
+  MijF = h/35*[  13     11*h/6    9/2   -13*h/12  ;
+                11*h/6   h*h/3   13*h/12  -h*h/4    ;
+               9/2      13*h/12   13    -11*h/6;
+               -13*h/12 -h*h/4   -11*h/6   h*h/3];
+  
   disp("************************************************************")
   
 % ******** Rigidity Kij matrix *************  
@@ -52,24 +58,32 @@ function FE_HermiteH3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
 	ind(N,:) = [2*N-3 2*N-2 2*N-1 2*N 1 2]; % Periodic condition
   
 % ************* Assemble the matrices (with periodic condition) ***********
-  M=zeros(2*N,2*N);
-  K=zeros(2*N,2*N);
+  M  = zeros(2*N,2*N);
+  MF = zeros(2*N,2*N);
+  K  = zeros(2*N,2*N);
   for i=1:2:2*N-2
-    M(i:i+3,i:i+3) += Mij;
-    K(i:i+3,i:i+3) += Kij;
+    M(i:i+3,i:i+3)  += Mij;
+    MF(i:i+3,i:i+3) += MijF;
+    K(i:i+3,i:i+3)  += Kij;
   end
   M(2*N-1:2*N,2*N-1:2*N) = M(2*N-1:2*N,2*N-1:2*N) + Mij(1:2,1:2);
   M(2*N-1:2*N,1:2)       = M(2*N-1:2*N,1:2)       + Mij(1:2,3:4);
   M(1:2,1:2)             = M(1:2,1:2)             + Mij(3:4,3:4);
   M(1:2,2*N-1:2*N)       = M(1:2,2*N-1:2*N)       + Mij(3:4,1:2);
+  
+  MF(2*N-1:2*N,2*N-1:2*N) = MF(2*N-1:2*N,2*N-1:2*N) + MijF(1:2,1:2);
+  MF(2*N-1:2*N,1:2)       = MF(2*N-1:2*N,1:2)       + MijF(1:2,3:4);
+  MF(1:2,1:2)             = MF(1:2,1:2)             + MijF(3:4,3:4);
+  MF(1:2,2*N-1:2*N)       = MF(1:2,2*N-1:2*N)       + MijF(3:4,1:2);
 
   K(2*N-1:2*N,2*N-1:2*N) = K(2*N-1:2*N,2*N-1:2*N) + Kij(1:2,1:2); 
   K(2*N-1:2*N,1:2)       = K(2*N-1:2*N,1:2)       + Kij(1:2,3:4);
   K(1:2,1:2)             = K(1:2,1:2)             + Kij(3:4,3:4);
   K(1:2,2*N-1:2*N)       = K(1:2,2*N-1:2*N)       + Kij(3:4,1:2);
   
-  M = sparse(M); % Remove the unnecessary zeros
-  K = sparse(K);
+  M  = sparse(M); % Remove the unnecessary zeros
+  MF = sparse(MF);
+  K  = sparse(K);
   
 % ************* Initialization for numerical integration *****************
 % weights for numerical integration (5 points -> 8th order for the subgrid term)
@@ -113,7 +127,7 @@ function FE_HermiteH3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
 %    F = 0;    
   
 %******** Call Runge-Kutta and compute kinematic energy ********
-    u(:,z) = RK4_FE_HermiteH3 (u(:,z-1),deltat,h,N,M,K,F,constant_sub,ind,d_shape_fct_vector,weight_gauss);
+    u(:,z) = RK4_FE_HermiteH3 (u(:,z-1),deltat,h,N,M,MF,K,F,constant_sub,ind,d_shape_fct_vector,weight_gauss);
     
 %    kinEnergy(i) = get_kinematic_energy(h,DG,u(:,end),N,2);
     
@@ -203,7 +217,7 @@ function FE_HermiteH3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
   
 end
 
-function y = RK4_FE_HermiteH3 (u,deltat,h,N,M,K,F,constant_sub,ind,d_shape_fct_vector,weight)
+function y = RK4_FE_HermiteH3 (u,deltat,h,N,M,MF,K,F,constant_sub,ind,d_shape_fct_vector,weight)
 % Temporal integration of the 1D Burgers equation with an explicit 4 steps Runge-Kutta scheme
 % Spatial discretization with cubic Hermite elements
 % 
@@ -265,7 +279,7 @@ function y = RK4_FE_HermiteH3 (u,deltat,h,N,M,K,F,constant_sub,ind,d_shape_fct_v
 	k4 = - M \ (K*Un4 + Cj);
 	
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-	y = Un + deltat*( k1 + 2*k2 + 2*k3 + k4 )/6 + F;
+	y = Un + deltat*( k1 + 2*k2 + 2*k3 + k4 )/6 + M\MF*F;
 end 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

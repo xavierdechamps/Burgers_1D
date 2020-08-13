@@ -3,6 +3,7 @@
 
 # Files
 *.pdf
+*.tex
 *.xls
 *.xlsx
 *.zip
