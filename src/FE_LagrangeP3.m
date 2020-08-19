@@ -147,7 +147,8 @@ function FE_LagrangeP3(N,nu,constant_sub,filter,L,time,nbrpointtemp,Ninterpolati
 %      F = 0;
         
 %******** Call Runge-Kutta and compute kinematic energy ********
-    [u(:,z),dynamic_smag_constant(i-1)] = RK4_FE_Lagrangep3 (u(:,z-1),deltat,h,N,M,MF,K,F,constant_sub,ind,d_shape_fct_vector,weight_gauss,indfilter,filter);
+    [u(:,z),dynamic_smag_constant(i-1)] = RK4_FE_Lagrangep3 (u(:,z-1),deltat,h,N,M,MF,K,F,constant_sub,ind,...
+                                                             d_shape_fct_vector,weight_gauss,indfilter,filter);
     
 % kinematic energy not computed yet for the cubic Lagrange element
 %      kinEnergy(i) = get_kinematic_energy(h,DG,u(:,z),3*N,1);
@@ -206,7 +207,8 @@ function FE_LagrangeP3(N,nu,constant_sub,filter,L,time,nbrpointtemp,Ninterpolati
 %          grid on; xlabel('Time'); ylabel('E(t)')
          
           subplot(2,2,2);
-          loglog(0:((length_vec+1)/2-1),spectralEnergy(1:((length_vec+1)/2))/nbrPointsStatistics,'r','Linewidth',3, reference_spectrum(:,1),reference_spectrum(:,2),'b','Linewidth',3);
+          loglog(0:((length_vec+1)/2-1),spectralEnergy(1:((length_vec+1)/2))/nbrPointsStatistics,'r','Linewidth',3,...
+                 reference_spectrum(:,1),reference_spectrum(:,2),'b','Linewidth',3);
           grid on; xlabel('k'); ylabel('E(k)');
           xlim([1 reference_spectrum(end,1)])
         
@@ -255,7 +257,8 @@ function FE_LagrangeP3(N,nu,constant_sub,filter,L,time,nbrpointtemp,Ninterpolati
   
 end
 
-function [y,dynamic_sub] = RK4_FE_Lagrangep3 (u,deltat,h,N,M,MF,K,F,constant_sub,ind,d_shape_fct_vector,weight,indfilter,filter)
+function [y,smag_sub] = RK4_FE_Lagrangep3 (u,deltat,h,N,M,MF,K,F,constant_sub,ind,...
+                                              d_shape_fct_vector,weight,indfilter,filter)
 % Temporal integration of the 1D Burgers equation with an explicit 4 steps Runge-Kutta scheme
 % Spatial discretization with cubic Lagrange elements
 % 
@@ -277,18 +280,19 @@ function [y,dynamic_sub] = RK4_FE_Lagrangep3 (u,deltat,h,N,M,MF,K,F,constant_sub
 %%%%%% Get the Smagorinsky constant in case of dynamic model
   if (filter>0)
      kappa = 2 ; % filter ratio
-     dynamic_sub = get_dynamic_smagorinsky(Un,u1,u2,u3,u4,ind,N,h,kappa,indfilter,filter);
-     constant_sub = dynamic_sub ;
-  else
-     dynamic_sub = constant_sub ;
+     smag_sub = get_dynamic_smagorinsky(Un,u1,u2,u3,u4,ind,N,h,kappa,indfilter,filter);
+  elseif (filter==0)
+     smag_sub = constant_sub ;
+  else 
+     smag_sub = 0. ;
   end
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Second step
 % convective term
   Cj = get_non_linear_lagrange_P3(u1,u2,u3,u4,ind,N);
 % subgrid term
-  if (constant_sub>0)
-    Cj += get_subgrid_terms(constant_sub,h,u1,u2,u3,u4,ind,N,d_shape_fct_vector,weight) ;
+  if (smag_sub>0)
+    Cj += get_subgrid_terms(smag_sub,h,u1,u2,u3,u4,ind,N,d_shape_fct_vector,weight) ;
   end
   k1 = - M \ (K*Un + Cj);
   Un2 = Un + deltat*0.5*k1;
@@ -298,8 +302,8 @@ function [y,dynamic_sub] = RK4_FE_Lagrangep3 (u,deltat,h,N,M,MF,K,F,constant_sub
 % nonlinear terms
   Cj = get_non_linear_lagrange_P3(u1,u2,u3,u4,ind,N);
 % subgrid terms
-  if (constant_sub>0)
-    Cj += get_subgrid_terms(constant_sub,h,u1,u2,u3,u4,ind,N,d_shape_fct_vector,weight) ;
+  if (smag_sub>0)
+    Cj += get_subgrid_terms(smag_sub,h,u1,u2,u3,u4,ind,N,d_shape_fct_vector,weight) ;
   end
   k2 = - M \ (K*Un2 + Cj);
   Un3 = Un + deltat*0.5*k2;
@@ -309,8 +313,8 @@ function [y,dynamic_sub] = RK4_FE_Lagrangep3 (u,deltat,h,N,M,MF,K,F,constant_sub
 % nonlinear terms
   Cj = get_non_linear_lagrange_P3(u1,u2,u3,u4,ind,N);
 % subgrid terms
-  if (constant_sub>0)
-    Cj += get_subgrid_terms(constant_sub,h,u1,u2,u3,u4,ind,N,d_shape_fct_vector,weight) ;
+  if (smag_sub>0)
+    Cj += get_subgrid_terms(smag_sub,h,u1,u2,u3,u4,ind,N,d_shape_fct_vector,weight) ;
   end
   k3 = - M \ (K*Un3 + Cj);
   Un4 = Un + deltat*k3;
@@ -320,8 +324,8 @@ function [y,dynamic_sub] = RK4_FE_Lagrangep3 (u,deltat,h,N,M,MF,K,F,constant_sub
 % nonlinear terms
   Cj = get_non_linear_lagrange_P3(u1,u2,u3,u4,ind,N);
 % subgrid terms
-  if (constant_sub>0)
-    Cj += get_subgrid_terms(constant_sub,h,u1,u2,u3,u4,ind,N,d_shape_fct_vector,weight) ;
+  if (smag_sub>0)
+    Cj += get_subgrid_terms(smag_sub,h,u1,u2,u3,u4,ind,N,d_shape_fct_vector,weight) ;
   end
   k4 = - M \ (K*Un4 + Cj);
   
@@ -376,7 +380,7 @@ function Csubgrid = get_subgrid_terms(constant_sub,h,u1,u2,u3,u4,ind,N,deriv_sha
   Csubgrid = zeros(3*N,1);
 %  factor = constant_sub * constant_sub * 0.125 ;
 %  factor = ( constant_sub * h )^2 ;
-  factor = constant_sub^2 * 2 * h ;
+  factor = constant_sub^2 * 0.5 * h ;
   for i = 1:length(weight) % Loop over integration points
     deriv_u = deriv_shape(1,i) * u1 + deriv_shape(2,i) * u2 + ...
               deriv_shape(3,i) * u3 + deriv_shape(4,i) * u4 ;

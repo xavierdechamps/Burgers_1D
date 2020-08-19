@@ -1,4 +1,4 @@
-function FE_HermiteH3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,file_spectrum,submethod)
+function FE_HermiteH3(N,nu,constant_sub,Filter,Alpha_Pade,L,time,nbrpointtemp,Ninterpolation,name,file_spectrum,submethod)
 % Solve the 1D forced Burgers equation with cubic Hermite elements 
 % The unknowns are the velocity and the first spatial derivative of the velocity, thus 2 unknowns per node
 %
@@ -8,7 +8,23 @@ function FE_HermiteH3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
 %************* Initialization of the parameters **************************
   disp("************************************************************")  
   disp("Finite element cubic Hermite H3")
-
+  switch Filter
+     case 0
+       disp("   Constant value Smagorinsky model")
+##     case 1
+##       disp("   Dynamic Smagorinsky model - 3 points stencil for the low-pass filter")
+##     case 2
+##       disp("   Dynamic Smagorinsky model - 5 points stencil for the low-pass filter")
+##     case 3
+##       disp("   Dynamic Smagorinsky model - 7 points stencil for the low-pass filter")
+##     case 4
+##       disp("   Dynamic Smagorinsky model - 9 points stencil for the low-pass filter")
+##     case 5
+##       disp("   Dynamic Smagorinsky model - Pade low-pass filter")
+     otherwise 
+       disp("   Direct numerical simulation")
+  end
+  
   h  = L/N; % Length of the elements
   DG = 4;   % Number of Gauss points for numerical integration of the energy
   X  = zeros(N,1);
@@ -104,6 +120,24 @@ function FE_HermiteH3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
   u(:,1)=2*rand(2*N,1)-1;
 % Sinus solution for non-forced Burgers equation
 %  u(1:2:2*N,1)=sin(X(:) * 2*pi/L) ; u(2:2:2*N,1)=2*pi/L*cos(X(:) * 2*pi/L) ;
+
+% Store the indices of the neighbour nodes i-4 i-3 i-2 i-1 i i+1 i+2 i+3 i+4 used in the derivatives
+  indfilter = zeros(N,9);
+  indfilter(:,5) = 1:N; % i
+  indfilter(:,4) = circshift(indfilter(:,5),1,1) ; % i-1
+  indfilter(:,3) = circshift(indfilter(:,5),2,1) ; % i-2
+  indfilter(:,2) = circshift(indfilter(:,5),3,1) ; % i-3
+  indfilter(:,1) = circshift(indfilter(:,5),4,1) ; % i-4
+  indfilter(:,6) = circshift(indfilter(:,5),-1,1); % i+1
+  indfilter(:,7) = circshift(indfilter(:,5),-2,1); % i+2
+  indfilter(:,8) = circshift(indfilter(:,5),-3,1); % i+3
+  indfilter(:,9) = circshift(indfilter(:,5),-4,1); % i+4
+  dynamic_smag_constant = zeros(nbrpointtemp,1);
+  mat_alpha = zeros(N,N) ;
+  for i=1:N
+     mat_alpha(i, indfilter(i,4:6)) = [Alpha_Pade , 1 , Alpha_Pade] ;
+  end
+  mat_alpha = sparse(mat_alpha);
   
   timeBeforeStatistics = 10;
   
@@ -127,9 +161,11 @@ function FE_HermiteH3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
 %    F = 0;    
   
 %******** Call Runge-Kutta and compute kinematic energy ********
-    u(:,z) = RK4_FE_HermiteH3 (u(:,z-1),deltat,h,N,M,MF,K,F,constant_sub,ind,d_shape_fct_vector,weight_gauss);
+    [u(:,z),dynamic_smag_constant(i-1)] = ...
+             RK4_FE_HermiteH3 (u(:,z-1),deltat,h,N,M,MF,K,F,constant_sub,Filter,indfilter,...
+                               Alpha_Pade ,mat_alpha,ind,d_shape_fct_vector,weight_gauss);
     
-%    kinEnergy(i) = get_kinematic_energy(h,DG,u(:,end),N,2);
+    kinEnergy(i) = get_kinematic_energy(h,DG,u(:,end),N,2);
     
     if (i*deltat>=timeBeforeStatistics)
 %      kinEnergyMean = kinEnergyMean*nbrPointsStatistics/(nbrPointsStatistics+1) + kinEnergy(i)/(nbrPointsStatistics+1) ;
@@ -176,16 +212,29 @@ function FE_HermiteH3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
 %          plot([X;X(end)+h]/L,[u(1:2:2*N-1,end);u(1,end)],'b*')
 %          hold off
         
-%        subplot(2,2,3);
-%        plot((1:i)*deltat,kinEnergy(1:i),'b','Linewidth',3);
-%        grid on; xlabel('Time'); ylabel('E(t)');
-%        xlim([0 time])
+        subplot(2,2,3);
+        plot((1:i)*deltat,kinEnergy(1:i),'b','Linewidth',3);
+        grid on; xlabel('Time'); ylabel('E(t)');
+        xlim([0 time])
         
-        subplot(1,2,2) ;
+        subplot(2,2,2);
         loglog(0:N-1,spectralEnergy(1:N)/nbrPointsStatistics,'r','Linewidth',3, reference_spectrum(:,1),reference_spectrum(:,2),'b','Linewidth',3);
         grid on; xlabel('k'); ylabel('E(k)');
         xlim([1 reference_spectrum(end,1)])
-
+        
+##        subplot(2,2,4)
+##        mean_Smagorinsky = mean(dynamic_smag_constant(1:i-1));
+##        standard_deviation = std(dynamic_smag_constant(1:i-1));
+##        standard_deviationp = mean_Smagorinsky + standard_deviation;
+##        standard_deviationm = mean_Smagorinsky - standard_deviation;
+##        plot((1:(i-1))*deltat,dynamic_smag_constant(1:i-1),'b','Linewidth',3) ; hold on;
+##        plot([1 (i-1)]*deltat,[mean_Smagorinsky mean_Smagorinsky],      'r-', 'Linewidth',3);
+##        plot([1 (i-1)]*deltat,[standard_deviationp standard_deviationp],'r--','Linewidth',3);
+##        plot([1 (i-1)]*deltat,[standard_deviationm standard_deviationm],'r--','Linewidth',3);
+##        hold off;
+##        grid on; xlabel('Time'); ylabel('Smagorinsky C_s(t)') ;
+##        xlim([0 time])
+        
         drawnow ;
     end
     
@@ -217,7 +266,8 @@ function FE_HermiteH3(N,nu,constant_sub,L,time,nbrpointtemp,Ninterpolation,name,
   
 end
 
-function y = RK4_FE_HermiteH3 (u,deltat,h,N,M,MF,K,F,constant_sub,ind,d_shape_fct_vector,weight)
+function [y,smag_sub] = RK4_FE_HermiteH3 (u,deltat,h,N,M,MF,K,F,constant_sub,filter,indfilter,...
+                                          alpha,mat_alpha,ind,d_shape_fct_vector,weight)
 % Temporal integration of the 1D Burgers equation with an explicit 4 steps Runge-Kutta scheme
 % Spatial discretization with cubic Hermite elements
 % 
@@ -234,13 +284,24 @@ function y = RK4_FE_HermiteH3 (u,deltat,h,N,M,MF,K,F,constant_sub,ind,d_shape_fc
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% First step
 	
 	Un = u ;
-			
+  
+%%%%%% Get the Smagorinsky constant in case of dynamic model
+##  if (filter>0)
+##     kappa = 2; % filter ratio
+##     smag_sub = get_dynamic_smagorinsky(Un,ind,h,kappa,filter,indfilter,alpha,mat_alpha);
+##  elseif (filter==0)
+  if (filter==0)
+     smag_sub = constant_sub ;
+  else 
+     smag_sub = 0. ;
+  end
+  
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Second step
 % convective term
   Cj = get_non_linear_hermite_H3(Un,ind,N,h) ;
 % subgrid term
-  if (constant_sub>0)
-     Cj += get_subgrid_terms(constant_sub,h,Un,ind,N,d_shape_fct_vector,weight);
+  if (smag_sub>0)
+     Cj += get_subgrid_terms(smag_sub,h,Un,ind,N,d_shape_fct_vector,weight);
   end
   
 	k1 = - M \ (K*Un + Cj);
@@ -250,8 +311,8 @@ function y = RK4_FE_HermiteH3 (u,deltat,h,N,M,MF,K,F,constant_sub,ind,d_shape_fc
 % convective term
   Cj = get_non_linear_hermite_H3(Un2,ind,N,h) ;
 % subgrid term
-  if (constant_sub>0)
-    Cj += get_subgrid_terms(constant_sub,h,Un2,ind,N,d_shape_fct_vector,weight);
+  if (smag_sub>0)
+    Cj += get_subgrid_terms(smag_sub,h,Un2,ind,N,d_shape_fct_vector,weight);
   end
   
 	k2 = - M \ (K*Un2 + Cj);
@@ -261,8 +322,8 @@ function y = RK4_FE_HermiteH3 (u,deltat,h,N,M,MF,K,F,constant_sub,ind,d_shape_fc
 % convective term
   Cj = get_non_linear_hermite_H3(Un3,ind,N,h) ;
 % subgrid term
-  if (constant_sub>0)
-     Cj += get_subgrid_terms(constant_sub,h,Un3,ind,N,d_shape_fct_vector,weight);
+  if (smag_sub>0)
+     Cj += get_subgrid_terms(smag_sub,h,Un3,ind,N,d_shape_fct_vector,weight);
 	end
   
 	k3 = - M \ (K*Un3 + Cj);
@@ -272,8 +333,8 @@ function y = RK4_FE_HermiteH3 (u,deltat,h,N,M,MF,K,F,constant_sub,ind,d_shape_fc
 % convective term
   Cj = get_non_linear_hermite_H3(Un4,ind,N,h) ;
 % subgrid term
-  if (constant_sub>0)
-     Cj += get_subgrid_terms(constant_sub,h,Un4,ind,N,d_shape_fct_vector,weight);
+  if (smag_sub>0)
+     Cj += get_subgrid_terms(smag_sub,h,Un4,ind,N,d_shape_fct_vector,weight);
 	end
   
 	k4 = - M \ (K*Un4 + Cj);
@@ -322,7 +383,8 @@ function Csubgrid = get_subgrid_terms(constant_sub,h,Un,ind,N,deriv_shape,weight
   u3 = Un(ind(:,5));  du3 = Un(ind(:,6));
 
   factor = constant_sub^2 * 2 * h ;
-  factor_deriv = h * 0.5 ;     % 1 ;
+%  factor = constant_sub^2 * 4 ;
+  factor_deriv = 1 ; %  h * 0.5 ;
   
 	for i = 1:length(weight) % Loop over the integration points
 		deriv_u = deriv_shape(1,i) * u2 + deriv_shape(2,i) * du2 * factor_deriv  + ...
@@ -331,9 +393,58 @@ function Csubgrid = get_subgrid_terms(constant_sub,h,Un,ind,N,deriv_shape,weight
 	  factor2 = weight(i) * factor * deriv_u .* abs(deriv_u);
     
 		Csubgrid(ind(:,3)) += factor2 * deriv_shape(1,i) ;
-		Csubgrid(ind(:,4)) += factor2 * deriv_shape(2,i) ;%* factor_deriv ;
+%		Csubgrid(ind(:,4)) += factor2 * deriv_shape(2,i) ;
 		Csubgrid(ind(:,5)) += factor2 * deriv_shape(3,i) ;
-		Csubgrid(ind(:,6)) += factor2 * deriv_shape(4,i) ;%* factor_deriv ;
+%		Csubgrid(ind(:,6)) += factor2 * deriv_shape(4,i) ;
 	end
 	
 end
+
+
+function smooth = apply_filter(Un,ind,type,alpha,mat_alpha)
+% i-4  i-3  i-2  i-1  i  i+1  i+2  i+3  i+4
+%  1    2    3    4   5   6    7    8    9
+   N = length(Un);
+   switch type
+      case 1
+% Low-pass filter binomial over 3 points B2
+         smooth = 0.25 * ( Un(ind(:,4)) + 2*Un(ind(:,5)) + Un(ind(:,6)) ) ;
+      case 2
+% Low-pass filter binomial over 5 points B(2,1)
+         smooth = ( -Un(ind(:,3)) + 4*Un(ind(:,4)) + 10*Un(ind(:,5)) + 4*Un(ind(:,6)) - Un(ind(:,7)) )/16;
+      case 3
+% Low-pass filter binomial over 7 points B(3,1)
+         smooth = ( Un(ind(:,2)) - 6*Un(ind(:,3)) + 15*Un(ind(:,4)) + 44*Un(ind(:,5)) + ...
+                            15*Un(ind(:,6)) - 6*Un(ind(:,7)) + Un(ind(:,8)) )/64;
+      case 4
+% Low-pass filter binomial over 9 points B(4,1)
+         smooth = ( -Un(ind(:,1)) +8*Un(ind(:,2)) - 28*Un(ind(:,3)) + 56*Un(ind(:,4)) + 186*Un(ind(:,5)) + ...
+                     56*Un(ind(:,6)) - 28*Un(ind(:,7)) + 8*Un(ind(:,8)) - Un(ind(:,9)) )/256;
+     case 5
+% Pade filter
+         a0 = (11 + 10*alpha)/32;
+         a1 = (15 + 34*alpha)/64;
+         a2 = (-3 + 6*alpha)/32;
+         a3 = ( 1 - 2*alpha)/64;
+         RHS = 2*a0*Un(ind(:,5))             + a1*(Un(ind(:,4))+Un(ind(:,6))) + ...
+              a2*(Un(ind(:,3))+Un(ind(:,7))) + a3*(Un(ind(:,2))+Un(ind(:,8))) ;
+         smooth = mat_alpha \ RHS ;
+      otherwise
+          disp("Unknown type of filter");
+          smooth = Un ;
+   end
+endfunction
+
+function dynamic_sub = get_dynamic_smagorinsky(Un,ind,h,kappa,filter,indfilter,alpha,mat_alpha)
+% Compute the Smagorinsky constant by a dynamic model
+% See "Evaluation of explicit and implicit LES closures for Burgers turbulence"
+% by R. Maulik and O. San, Journal of Computational and Applied Mathematics 327 (2018) 12-40
+   u_filter = apply_filter(Un(1:2:end) ,indfilter,filter,alpha,mat_alpha) ;
+   L        = apply_filter(Un(1:2:end).*Un(1:2:end) ,indfilter,filter,alpha,mat_alpha) - u_filter.*u_filter ;
+   
+   deriv_u_filter = apply_filter(Un(2:2:end),indfilter,filter,alpha,mat_alpha);
+   M = kappa*kappa* deriv_u_filter.*abs(deriv_u_filter) - apply_filter( Un(2:2:end) .*abs(Un(2:2:end)) ,indfilter,filter,alpha,mat_alpha) ;
+   
+   csdsq = 0.5 * sum(L.*M) / sum(M.*M); % (Cs * Delta)^2
+   dynamic_sub = sqrt(abs(csdsq)) / h ;
+endfunction
