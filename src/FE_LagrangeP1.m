@@ -328,9 +328,13 @@ function dynamic_sub = get_dynamic_smagorinsky(Un,ind,h,kappa,filter,alpha,mat_a
 % by R. Maulik and O. San, Journal of Computational and Applied Mathematics 327 (2018) 12-40
    u_filter = apply_filter(Un ,ind,filter,alpha,mat_alpha) ;
    L        = apply_filter(Un.*Un ,ind,filter,alpha,mat_alpha) - u_filter.*u_filter ;
+   
    deriv_u  =  get_first_derivative(Un,ind(:,4:6),h);
-   deriv_u_filter = apply_filter(deriv_u,ind,filter,alpha,mat_alpha);
+%   deriv_u_filter = apply_filter(deriv_u,ind,filter,alpha,mat_alpha);
+   deriv_u_filter = get_first_derivative(u_filter,ind(:,4:6),h);
+   
    M = kappa*kappa* deriv_u_filter.*abs(deriv_u_filter) - apply_filter( deriv_u .*abs(deriv_u) ,ind,filter,alpha,mat_alpha) ;
+   
    csdsq = 0.5 * sum(L.*M) / sum(M.*M); % (Cs * Delta)^2
    dynamic_sub = sqrt(abs(csdsq)) / h ;
 endfunction
