@@ -1,4 +1,6 @@
+%--------------------------------------------------------------------------------------------------------
 function DGFE_LagrangeP1(N,nu,constant_sub,filter,Alpha_Pade,M_minmod2,L,time,nbrpointtemp,name,file_spectrum)
+%--------------------------------------------------------------------------------------------------------
 % Solve the 1D forced Burgers equation with cubic Hermite elements
 % The unknown of the equation is the velocity, thus 1 unknown per node
 %
@@ -50,11 +52,11 @@ function DGFE_LagrangeP1(N,nu,constant_sub,filter,Alpha_Pade,M_minmod2,L,time,nb
 
 % ************* Initial condition on the solution ************************
 % Random solution for turbulent flow
-  u(1:2:2*N,1) = 2*rand(N,1)-1;
-  u(2:2:2*N,1) = u(1:2:2*N,1) ;
-% Sinus solution for non-forced Burgers equation
-%  u(1:2:2*N,1)=sin(X * 2*pi/L);
+%  u(1:2:2*N,1) = 2*rand(N,1)-1;
 %  u(2:2:2*N,1) = u(1:2:2*N,1) ;
+% Sinus solution for non-forced Burgers equation
+  u(1:2:2*N,1)=sin(X * 2*pi/L);
+  u(2:2:2*N,1) = u(1:2:2*N,1) ;
 
 %  u(:,1)=2*exp(-(X-3).^2);
 %  u(:,1) = sin(pi*X)
@@ -157,7 +159,7 @@ function DGFE_LagrangeP1(N,nu,constant_sub,filter,Alpha_Pade,M_minmod2,L,time,nb
 %        sol_theory = get_analytical_solution((i-1)*deltat,nu,X(1:(end/2 + 1)),100) ;
 %        hold on; plot(X(1:(end/2 + 1))/L,sol_theory,'r'); hold off
 %        relative_error(ind_error,1) = (i-1)*deltat;
-%        relative_error(ind_error,2) = sqrt( sum( (sol_theory-uu(1:length(sol_theory))).^2 ) ) / sqrt( sum( sol_theory.^2 ) ) ;
+%        relative_error(ind_error,2) = sqrt( sum( (sol_theory-u_avg(1:length(sol_theory))).^2 ) ) / sqrt( sum( sol_theory.^2 ) ) ;
 %        disp(strcat('Time : ',num2str(relative_error(ind_error,1)),' and relative error : ', num2str(relative_error(ind_error,2)) ))
 %        ind_error = ind_error + 1;
 
@@ -217,8 +219,9 @@ function DGFE_LagrangeP1(N,nu,constant_sub,filter,Alpha_Pade,M_minmod2,L,time,nb
 %  save(filename,'kinEnergy');
 end
 
-
+%--------------------------------------------------------------------------------------------------------
 function [y,smag_sub] = RK3SSP_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub,ind,filter,alpha,mat_alpha,M_minmod2)
+%--------------------------------------------------------------------------------------------------------
 % Temporal integration of the 1D Burgers equation with an explicit 3 steps Strong-Stability-Preserving Runge-Kutta scheme
 % Spatial discretization with discontinuous linear Lagrange elements
 %
@@ -264,7 +267,9 @@ function [y,smag_sub] = RK3SSP_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub
 
 end
 
+%--------------------------------------------------------------------------------------------------------
 function [y,smag_sub] = RK5SSP_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub,ind,filter,alpha,mat_alpha,M_minmod2)
+%--------------------------------------------------------------------------------------------------------
 % Temporal integration of the 1D Burgers equation with an explicit 5 steps Strong-Stability-Preserving Runge-Kutta scheme
 % Spatial discretization with discontinuous linear Lagrange elements
 %
@@ -317,7 +322,9 @@ function [y,smag_sub] = RK5SSP_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub
 
 end
 
+%--------------------------------------------------------------------------------------------------------
 function [y,smag_sub] = RK4_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub,ind,filter,alpha,mat_alpha,M_minmod2)
+%--------------------------------------------------------------------------------------------------------
 % Temporal integration of the 1D Burgers equation with an explicit 4 steps Runge-Kutta scheme
 % Spatial discretization with linear Lagrange elements
 %
@@ -387,7 +394,9 @@ function [y,smag_sub] = RK4_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub,in
 
 end
 
+%--------------------------------------------------------------------------------------------------------
 function vecC = get_viscous_term(Un,N,ind,nu_over_h)
+%--------------------------------------------------------------------------------------------------------
 % nu d2(u)/d(x)2
    vec1 = 2:2:2*N-2 ; % indices of first nodes of elements
    vec2 = 3:2:2*N-1 ; % indices of second nodes of elements
@@ -398,9 +407,11 @@ function vecC = get_viscous_term(Un,N,ind,nu_over_h)
    vecC(vec2) = - vecC(vec1) ; % second node of element
    vecC(2*N)  = - vecC(1)    ; % first node of last element
 
-endfunction
+end
 
+%--------------------------------------------------------------------------------------------------------
 function vecC = get_nonlinear_term(Un,N,ind,constant_sub)
+%--------------------------------------------------------------------------------------------------------
 % i-4  i-3  i-2  i-1  i  i+1  i+2  i+3  i+4
 %  1    2    3    4   5   6    7    8    9
 % Convective term - u du/dx
@@ -419,9 +430,11 @@ function vecC = get_nonlinear_term(Un,N,ind,constant_sub)
 %      vecC += constant_sub^2 * ( abs(Un(ind(:,6))-Un(ind(:,5))).*(Un(ind(:,6))-Un(ind(:,5))) - ...
 %                                 abs(Un(ind(:,5))-Un(ind(:,4))).*(Un(ind(:,5))-Un(ind(:,4))) ) ;
 %   endif
-endfunction
+end
 
+%--------------------------------------------------------------------------------------------------------
 function flux_adv = get_flux_adv(Un,N)
+%--------------------------------------------------------------------------------------------------------
    vec1 = 1:2:2*N-1 ; % indices of left values at nodes (minus)
    vec2 = 2:2:2*N   ; % indices of right values at nodes (plus)
 
@@ -433,21 +446,28 @@ function flux_adv = get_flux_adv(Un,N)
 
    % Flux for right values at nodes (plus)
    flux_adv(vec2,1) = val1 + val2 ;
-endfunction
+end
 
+%--------------------------------------------------------------------------------------------------------
 function flux_viscous = get_flux_viscous(Un,N,nu,h)
-   flux_viscous(3:2:2*N-3,1) = 0.5 * nu / h * ( Un(1:2:2*N-5) - Un(5:2:2*N-1) ); % Left flux
-   flux_viscous(4:2:2*N-2,1) = 0.5 * nu / h * ( Un(6:2:2*N)   - Un(2:2:2*N-4) ); % Right flux
+%--------------------------------------------------------------------------------------------------------
+   flux_viscous = zeros(2*N,1) ;
+
+   flux_viscous(3:2:2*N-3) = 0.5 * nu / h * ( Un(1:2:2*N-5) - Un(5:2:2*N-1) ); % Left flux
+   flux_viscous(4:2:2*N-2) = 0.5 * nu / h * ( Un(6:2:2*N)   - Un(2:2:2*N-4) ); % Right flux
 
    % First node
-   flux_viscous(1,1) = 0.5 * nu / h * ( Un(2*N-1) - Un(3)   ); % Left flux
-   flux_viscous(2,1) = 0.5 * nu / h * ( Un(4)     - Un(2*N) ); % Right flux
+   flux_viscous(1) = 0.5 * nu / h * ( Un(2*N-1) - Un(3)   ); % Left flux
+   flux_viscous(2) = 0.5 * nu / h * ( Un(4)     - Un(2*N) ); % Right flux
 
    % Last node
-   flux_viscous(2*N-1,1) = 0.5 * nu / h * ( Un(2*N-3) - Un(1)     ); % Left flux
-   flux_viscous(2*N  ,1) = 0.5 * nu / h * ( Un(2)     - Un(2*N-2) ); % Right flux
-endfunction
+   flux_viscous(2*N-1) = 0.5 * nu / h * ( Un(2*N-3) - Un(1)     ); % Left flux
+   flux_viscous(2*N  ) = 0.5 * nu / h * ( Un(2)     - Un(2*N-2) ); % Right flux
+end
+
+%--------------------------------------------------------------------------------------------------------
 function u_lim = slope_lim(u,N,h,M_minmod2)
+%--------------------------------------------------------------------------------------------------------
   % Precision threshold to apply or not the slope limiter
   % in order to improve accuracy in smooth regions of the solution
   eps0 = 1.0e-6;
@@ -474,8 +494,8 @@ function u_lim = slope_lim(u,N,h,M_minmod2)
 %  u_tilt_mod  = minmod_vec(u_tilt,  delta_uplus, delta_uminus);
 %  u_tilt2_mod = minmod_vec(u_tilt2, delta_uplus, delta_uminus);
 
-  % M is a constant that should be an upper bound on the second derivative at the local extrem
-  M = M_minmod2 ; % best fit with the reference curve
+  % M is a constant that should be an upper bound on the second derivative at the local extrema
+  M = M_minmod2 ;
   u_tilt_mod  = minmod_vec(u_tilt,  delta_uplus + M*h*h*sign(delta_uplus), delta_uminus + M*h*h*sign(delta_uminus));
   u_tilt2_mod = minmod_vec(u_tilt2, delta_uplus + M*h*h*sign(delta_uplus), delta_uminus + M*h*h*sign(delta_uminus));
 
@@ -488,20 +508,26 @@ function u_lim = slope_lim(u,N,h,M_minmod2)
 
   u_lim = u;
   u_lim(ids) = u_mod(ids);
-endfunction
+end
 
+%--------------------------------------------------------------------------------------------------------
 function r=minmod_vec(a,b,c)
+%--------------------------------------------------------------------------------------------------------
    test=[sign(a)==sign(b) sign(b)==sign(c)];
    test2=test(:,1).*test(:,2);
    r=test2.*sign(a).*min([abs(a) abs(b) abs(c)],[],2);
-endfunction
+end
 
+%--------------------------------------------------------------------------------------------------------
 function dudx = get_first_derivative(Un,ind,h)
+%--------------------------------------------------------------------------------------------------------
 % ind has size (N,3)
    dudx = ( Un(ind(:,3)) - Un(ind(:,1)) ) * 0.5 / h ;
-endfunction
+end
 
+%--------------------------------------------------------------------------------------------------------
 function smooth = apply_filter(Un,ind,type,alpha,mat_alpha)
+%--------------------------------------------------------------------------------------------------------
 % i-4  i-3  i-2  i-1  i  i+1  i+2  i+3  i+4
 %  1    2    3    4   5   6    7    8    9
    N = length(Un);
@@ -533,9 +559,11 @@ function smooth = apply_filter(Un,ind,type,alpha,mat_alpha)
           disp("Unknown type of filter");
           smooth = Un ;
    end
-endfunction
+end
 
+%--------------------------------------------------------------------------------------------------------
 function dynamic_sub = get_dynamic_smagorinsky(Un,ind,h,kappa,filter,alpha,mat_alpha)
+%--------------------------------------------------------------------------------------------------------
 % Compute the Smagorinsky constant by a dynamic model
 % See "Evaluation of explicit and implicit LES closures for Burgers turbulence"
 % by R. Maulik and O. San, Journal of Computational and Applied Mathematics 327 (2018) 12-40
@@ -550,4 +578,4 @@ function dynamic_sub = get_dynamic_smagorinsky(Un,ind,h,kappa,filter,alpha,mat_a
 
    csdsq = 0.5 * sum(L.*M) / sum(M.*M); % (Cs * Delta)^2
    dynamic_sub = sqrt(abs(csdsq)) / h ;
-endfunction
+end
