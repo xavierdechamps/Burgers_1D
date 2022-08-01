@@ -5,15 +5,15 @@ Both a constant Smagorinsky model and a dynamic Smagorinsky model are implemente
 The main driver of the code is the file Main.m
 
 The implemented finite element methods are:
-  * linear Lagrange element
-  * cubic Lagrange element
-  * cubic Hermite element
-  * 5th order Hermite element
+  * continuous and discontinuous linear Lagrange element
+  * continuous 3rd order Lagrange element
+  * continuous and discontinuous 3rd order Hermite element
+  * continuous 5th order Hermite element
   
 The implemented finite difference schemes are
-  * energy dissipative second order centered scheme
-  * energy conservative second order centered scheme
-  * energy conservative fourth order centered scheme
+  * energy dissipative 2nd order centered scheme
+  * energy conservative 2nd order centered scheme
+  * energy conservative 4th order centered scheme
   * energy conservative compact schemes with spectral-like resolution
   * non-linear discretization of the convective term (slope-limiters)
   

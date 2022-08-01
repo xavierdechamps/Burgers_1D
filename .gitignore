@@ -11,3 +11,5 @@ gnuplot*
 
 # Directory containing files that are not shared with GitHub
 Additional_files/
+Doc/*
+!Doc/Burgers.pdf

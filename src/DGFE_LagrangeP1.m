@@ -52,11 +52,11 @@ function DGFE_LagrangeP1(N,nu,constant_sub,filter,Alpha_Pade,M_minmod2,L,time,nb
 
 % ************* Initial condition on the solution ************************
 % Random solution for turbulent flow
-%  u(1:2:2*N,1) = 2*rand(N,1)-1;
-%  u(2:2:2*N,1) = u(1:2:2*N,1) ;
-% Sinus solution for non-forced Burgers equation
-  u(1:2:2*N,1)=sin(X * 2*pi/L);
+  u(1:2:2*N,1) = 2*rand(N,1)-1;
   u(2:2:2*N,1) = u(1:2:2*N,1) ;
+% Sinus solution for non-forced Burgers equation
+%  u(1:2:2*N,1)=sin(X * 2*pi/L);
+%  u(2:2:2*N,1) = u(1:2:2*N,1) ;
 
 %  u(:,1)=2*exp(-(X-3).^2);
 %  u(:,1) = sin(pi*X)
@@ -86,12 +86,6 @@ function DGFE_LagrangeP1(N,nu,constant_sub,filter,Alpha_Pade,M_minmod2,L,time,nb
   ind(:,7) = circshift(ind(:,5),-2,1); % i+2
   ind(:,8) = circshift(ind(:,5),-3,1); % i+3
   ind(:,9) = circshift(ind(:,5),-4,1); % i+4
-  dynamic_smag_constant = zeros(nbrpointtemp,1);
-  mat_alpha = zeros(N,N) ;
-  for i=1:N
-     mat_alpha(i, ind(i,4:6)) = [Alpha_Pade , 1 , Alpha_Pade] ;
-  end
-  mat_alpha = sparse(mat_alpha);
 
   %[maxU, maxInd] = max(u(:,1)); [minU, minInd] = min(u(:,1));
   %distance_sinus = zeros(1:nbrpointtime+1,1);
@@ -108,12 +102,9 @@ function DGFE_LagrangeP1(N,nu,constant_sub,filter,Alpha_Pade,M_minmod2,L,time,nb
 %    F = 0;
 
 %******** Call Runge-Kutta and compute kinematic energy ********
-%    [u(:,z),dynamic_smag_constant(i-1)] = ...
-%              RK4_DGFE_Lagrangep1(u(:,z-1),deltat,N,M,nu,h,F,constant_sub,ind,filter,Alpha_Pade ,mat_alpha,M_minmod2);
-%    [u(:,z),dynamic_smag_constant(i-1)] = ...
-%              RK3SSP_DGFE_Lagrangep1(u(:,z-1),deltat,N,M,nu,h,F,constant_sub,ind,filter,Alpha_Pade ,mat_alpha,M_minmod2);
-    [u(:,z),dynamic_smag_constant(i-1)] = ...
-              RK5SSP_DGFE_Lagrangep1(u(:,z-1),deltat,N,M,nu,h,F,constant_sub,ind,filter,Alpha_Pade ,mat_alpha,M_minmod2);
+%    u(:,z) = RK4_DGFE_Lagrangep1(u(:,z-1),deltat,N,M,nu,h,F,ind,M_minmod2);
+%    u(:,z) = RK3SSP_DGFE_Lagrangep1(u(:,z-1),deltat,N,M,nu,h,F,ind,M_minmod2);
+    u(:,z) = RK5SSP_DGFE_Lagrangep1(u(:,z-1),deltat,N,M,nu,h,F,ind,M_minmod2);
 
     u_avg(1:N,1) = 0.5 * ( u(1:2:2*N-1,z) + u(2:2:2*N,z) );
 
@@ -173,19 +164,6 @@ function DGFE_LagrangeP1(N,nu,constant_sub,filter,Alpha_Pade,M_minmod2,L,time,nb
         grid on; xlabel('k'); ylabel('E(k)');
         xlim([1 reference_spectrum(end,1)])
 
-%        subplot(2,2,4)
-%        mean_Smagorinsky = mean(dynamic_smag_constant(1:i-1));
-%        standard_deviation = std(dynamic_smag_constant(1:i-1));
-%        standard_deviationp = mean_Smagorinsky + standard_deviation;
-%        standard_deviationm = mean_Smagorinsky - standard_deviation;
-%        plot((1:(i-1))*deltat,dynamic_smag_constant(1:i-1),'b','Linewidth',3) ; hold on;
-%        plot([1 (i-1)]*deltat,[mean_Smagorinsky mean_Smagorinsky],      'r-', 'Linewidth',3);
-%        plot([1 (i-1)]*deltat,[standard_deviationp standard_deviationp],'r--','Linewidth',3);
-%        plot([1 (i-1)]*deltat,[standard_deviationm standard_deviationm],'r--','Linewidth',3);
-%        hold off;
-%        grid on; xlabel('Time'); ylabel('Smagorinsky C_s(t)') ;
-%        xlim([0 time])
-
         drawnow;
     end
     z=z+1;
@@ -200,8 +178,6 @@ function DGFE_LagrangeP1(N,nu,constant_sub,filter,Alpha_Pade,M_minmod2,L,time,nb
     end
   end
 
-%  mean_Smagorinsky = mean(dynamic_smag_constant)
-%  standard_deviation = std(dynamic_smag_constant)
   %relative_error
 
   spectralEnergyOut = spectralEnergy(1:(N/2))/nbrPointsStatistics;
@@ -220,7 +196,7 @@ function DGFE_LagrangeP1(N,nu,constant_sub,filter,Alpha_Pade,M_minmod2,L,time,nb
 end
 
 %--------------------------------------------------------------------------------------------------------
-function [y,smag_sub] = RK3SSP_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub,ind,filter,alpha,mat_alpha,M_minmod2)
+function y = RK3SSP_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,ind,M_minmod2)
 %--------------------------------------------------------------------------------------------------------
 % Temporal integration of the 1D Burgers equation with an explicit 3 steps Strong-Stability-Preserving Runge-Kutta scheme
 % Spatial discretization with discontinuous linear Lagrange elements
@@ -235,11 +211,10 @@ function [y,smag_sub] = RK3SSP_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub
 % U(n+1) = 0.333*U(n) + 0.666* ( deltat * f(v2) + v2 )
 %
   nu_over_h = nu / h ;
-  smag_sub = 0. ;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% First step
   Kj = get_viscous_term  (u,N,ind(:,4:6),nu_over_h) ;
-  Cj = get_nonlinear_term(u,N,ind,smag_sub) ;
+  Cj = get_nonlinear_term(u,N,ind) ;
   fluxes = get_flux_adv(u,N) + get_flux_viscous(u,N,nu,h);
   k1 = M \ ( Kj - Cj - fluxes);
 
@@ -247,7 +222,7 @@ function [y,smag_sub] = RK3SSP_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Second step
   Kj = get_viscous_term  (Un1,N,ind(:,4:6),nu_over_h) ;
-  Cj = get_nonlinear_term(Un1,N,ind,smag_sub) ;
+  Cj = get_nonlinear_term(Un1,N,ind) ;
   fluxes = get_flux_adv(Un1,N) + get_flux_viscous(Un1,N,nu,h);
   k2 = M \ ( Kj - Cj - fluxes);
 
@@ -255,7 +230,7 @@ function [y,smag_sub] = RK3SSP_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Third step
   Kj = get_viscous_term  (Un2,N,ind(:,4:6),nu_over_h) ;
-  Cj = get_nonlinear_term(Un2,N,ind,smag_sub) ;
+  Cj = get_nonlinear_term(Un2,N,ind) ;
   fluxes = get_flux_adv(Un2,N) + get_flux_viscous(Un2,N,nu,h);
   k3 = M \ ( Kj - Cj - fluxes);
 
@@ -268,17 +243,16 @@ function [y,smag_sub] = RK3SSP_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub
 end
 
 %--------------------------------------------------------------------------------------------------------
-function [y,smag_sub] = RK5SSP_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub,ind,filter,alpha,mat_alpha,M_minmod2)
+function y = RK5SSP_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,ind,M_minmod2)
 %--------------------------------------------------------------------------------------------------------
 % Temporal integration of the 1D Burgers equation with an explicit 5 steps Strong-Stability-Preserving Runge-Kutta scheme
 % Spatial discretization with discontinuous linear Lagrange elements
 %
   nu_over_h = nu / h ;
-  smag_sub = 0. ;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% First step
   Kj = get_viscous_term  (u,N,ind(:,4:6),nu_over_h) ;
-  Cj = get_nonlinear_term(u,N,ind,smag_sub) ;
+  Cj = get_nonlinear_term(u,N,ind) ;
   fluxes = get_flux_adv(u,N) + get_flux_viscous(u,N,nu,h);
   k1 = M \ ( Kj - Cj - fluxes);
 
@@ -286,7 +260,7 @@ function [y,smag_sub] = RK5SSP_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Second step
   Kj = get_viscous_term  (Un1,N,ind(:,4:6),nu_over_h) ;
-  Cj = get_nonlinear_term(Un1,N,ind,smag_sub) ;
+  Cj = get_nonlinear_term(Un1,N,ind) ;
   fluxes = get_flux_adv(Un1,N) + get_flux_viscous(Un1,N,nu,h);
   k2 = M \ ( Kj - Cj - fluxes);
 
@@ -294,7 +268,7 @@ function [y,smag_sub] = RK5SSP_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Third step
   Kj = get_viscous_term  (Un2,N,ind(:,4:6),nu_over_h) ;
-  Cj = get_nonlinear_term(Un2,N,ind,smag_sub) ;
+  Cj = get_nonlinear_term(Un2,N,ind) ;
   fluxes = get_flux_adv(Un2,N) + get_flux_viscous(Un2,N,nu,h);
   k3 = M \ ( Kj - Cj - fluxes);
 
@@ -302,7 +276,7 @@ function [y,smag_sub] = RK5SSP_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fourth step
   Kj = get_viscous_term  (Un3,N,ind(:,4:6),nu_over_h) ;
-  Cj = get_nonlinear_term(Un3,N,ind,smag_sub) ;
+  Cj = get_nonlinear_term(Un3,N,ind) ;
   fluxes = get_flux_adv(Un3,N) + get_flux_viscous(Un3,N,nu,h);
   k4 = M \ ( Kj - Cj - fluxes);
 
@@ -310,7 +284,7 @@ function [y,smag_sub] = RK5SSP_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fifth step
   Kj = get_viscous_term  (Un4,N,ind(:,4:6),nu_over_h) ;
-  Cj = get_nonlinear_term(Un4,N,ind,smag_sub) ;
+  Cj = get_nonlinear_term(Un4,N,ind) ;
   fluxes = get_flux_adv(Un4,N) + get_flux_viscous(Un4,N,nu,h);
   k5 = M \ ( Kj - Cj - fluxes);
 
@@ -323,7 +297,7 @@ function [y,smag_sub] = RK5SSP_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub
 end
 
 %--------------------------------------------------------------------------------------------------------
-function [y,smag_sub] = RK4_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub,ind,filter,alpha,mat_alpha,M_minmod2)
+function y = RK4_DGFE_Lagrangep1    (u,deltat,N,M,nu,h,F,ind,M_minmod2)
 %--------------------------------------------------------------------------------------------------------
 % Temporal integration of the 1D Burgers equation with an explicit 4 steps Runge-Kutta scheme
 % Spatial discretization with linear Lagrange elements
@@ -343,19 +317,9 @@ function [y,smag_sub] = RK4_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub,in
   Un = u;
   nu_over_h = nu / h ;
 
-%%%%%% Get the Smagorinsky constant in case of dynamic model
-%  if (filter>0)
-%     kappa = 2; % filter ratio
-%     smag_sub = get_dynamic_smagorinsky(Un,ind,h,kappa,filter,alpha,mat_alpha);
-%  elseif (filter==0)
-%     smag_sub = constant_sub ;
-%  else
-     smag_sub = 0. ;
-%  end
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Second step
   Kj = get_viscous_term  (Un,N,ind(:,4:6),nu_over_h) ;
-  Cj = get_nonlinear_term(Un,N,ind,smag_sub) ;
+  Cj = get_nonlinear_term(Un,N,ind) ;
   fluxes = get_flux_adv(Un,N) + get_flux_viscous(Un,N,nu,h);
   k1 = M \ ( Kj - Cj - fluxes);
 
@@ -363,7 +327,7 @@ function [y,smag_sub] = RK4_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub,in
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Third step
   Kj = get_viscous_term  (Un2,N,ind(:,4:6),nu_over_h) ;
-  Cj = get_nonlinear_term(Un2,N,ind,smag_sub) ;
+  Cj = get_nonlinear_term(Un2,N,ind) ;
   fluxes = get_flux_adv(Un2,N) + get_flux_viscous(Un2,N,nu,h);
   k2 = M \ ( Kj - Cj - fluxes);
 
@@ -371,7 +335,7 @@ function [y,smag_sub] = RK4_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub,in
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fourth step
   Kj = get_viscous_term  (Un3,N,ind(:,4:6),nu_over_h) ;
-  Cj = get_nonlinear_term(Un3,N,ind,smag_sub) ;
+  Cj = get_nonlinear_term(Un3,N,ind) ;
   fluxes = get_flux_adv(Un3,N) + get_flux_viscous(Un3,N,nu,h);
   k3 = M \ ( Kj - Cj - fluxes);
 
@@ -379,7 +343,7 @@ function [y,smag_sub] = RK4_DGFE_Lagrangep1 (u,deltat,N,M,nu,h,F,constant_sub,in
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fifth step
   Kj = get_viscous_term  (Un4,N,ind(:,4:6),nu_over_h) ;
-  Cj = get_nonlinear_term(Un4,N,ind,smag_sub) ;
+  Cj = get_nonlinear_term(Un4,N,ind) ;
   fluxes = get_flux_adv(Un4,N) + get_flux_viscous(Un4,N,nu,h);
   k4 = M \ ( Kj - Cj - fluxes);
 
@@ -410,7 +374,7 @@ function vecC = get_viscous_term(Un,N,ind,nu_over_h)
 end
 
 %--------------------------------------------------------------------------------------------------------
-function vecC = get_nonlinear_term(Un,N,ind,constant_sub)
+function vecC = get_nonlinear_term(Un,N,ind)
 %--------------------------------------------------------------------------------------------------------
 % i-4  i-3  i-2  i-1  i  i+1  i+2  i+3  i+4
 %  1    2    3    4   5   6    7    8    9
@@ -424,12 +388,6 @@ function vecC = get_nonlinear_term(Un,N,ind,constant_sub)
    vecC(vec1) = (   Un(vec2).^2 - 2*Un(vec1).^2 + Un(vec1) .* Un(vec2) ) / 6 ; % first node of element
    vecC(vec2) = ( 2*Un(vec2).^2 -   Un(vec1).^2 - Un(vec1) .* Un(vec2) ) / 6 ; % second node of element
    vecC(2*N)  = (   Un(1).^2    - 2*Un(2*N).^2  + Un(1)     * Un(2*N)  ) / 6; % first node of last element
-
-% Subgrid term
-%   if ( constant_sub>0 )
-%      vecC += constant_sub^2 * ( abs(Un(ind(:,6))-Un(ind(:,5))).*(Un(ind(:,6))-Un(ind(:,5))) - ...
-%                                 abs(Un(ind(:,5))-Un(ind(:,4))).*(Un(ind(:,5))-Un(ind(:,4))) ) ;
-%   endif
 end
 
 %--------------------------------------------------------------------------------------------------------
@@ -516,66 +474,4 @@ function r=minmod_vec(a,b,c)
    test=[sign(a)==sign(b) sign(b)==sign(c)];
    test2=test(:,1).*test(:,2);
    r=test2.*sign(a).*min([abs(a) abs(b) abs(c)],[],2);
-end
-
-%--------------------------------------------------------------------------------------------------------
-function dudx = get_first_derivative(Un,ind,h)
-%--------------------------------------------------------------------------------------------------------
-% ind has size (N,3)
-   dudx = ( Un(ind(:,3)) - Un(ind(:,1)) ) * 0.5 / h ;
-end
-
-%--------------------------------------------------------------------------------------------------------
-function smooth = apply_filter(Un,ind,type,alpha,mat_alpha)
-%--------------------------------------------------------------------------------------------------------
-% i-4  i-3  i-2  i-1  i  i+1  i+2  i+3  i+4
-%  1    2    3    4   5   6    7    8    9
-   N = length(Un);
-   switch type
-      case 1
-% Low-pass filter binomial over 3 points B2
-         smooth = 0.25 * ( Un(ind(:,4)) + 2*Un(ind(:,5)) + Un(ind(:,6)) ) ;
-      case 2
-% Low-pass filter binomial over 5 points B(2,1)
-         smooth = ( -Un(ind(:,3)) + 4*Un(ind(:,4)) + 10*Un(ind(:,5)) + 4*Un(ind(:,6)) - Un(ind(:,7)) )/16;
-      case 3
-% Low-pass filter binomial over 7 points B(3,1)
-         smooth = ( Un(ind(:,2)) - 6*Un(ind(:,3)) + 15*Un(ind(:,4)) + 44*Un(ind(:,5)) + ...
-                            15*Un(ind(:,6)) - 6*Un(ind(:,7)) + Un(ind(:,8)) )/64;
-      case 4
-% Low-pass filter binomial over 9 points B(4,1)
-         smooth = ( -Un(ind(:,1)) +8*Un(ind(:,2)) - 28*Un(ind(:,3)) + 56*Un(ind(:,4)) + 186*Un(ind(:,5)) + ...
-                     56*Un(ind(:,6)) - 28*Un(ind(:,7)) + 8*Un(ind(:,8)) - Un(ind(:,9)) )/256;
-     case 5
-% Pade filter
-         a0 = (11 + 10*alpha)/32;
-         a1 = (15 + 34*alpha)/64;
-         a2 = (-3 + 6*alpha)/32;
-         a3 = ( 1 - 2*alpha)/64;
-         RHS = 2*a0*Un(ind(:,5))             + a1*(Un(ind(:,4))+Un(ind(:,6))) + ...
-              a2*(Un(ind(:,3))+Un(ind(:,7))) + a3*(Un(ind(:,2))+Un(ind(:,8))) ;
-         smooth = mat_alpha \ RHS ;
-      otherwise
-          disp("Unknown type of filter");
-          smooth = Un ;
-   end
-end
-
-%--------------------------------------------------------------------------------------------------------
-function dynamic_sub = get_dynamic_smagorinsky(Un,ind,h,kappa,filter,alpha,mat_alpha)
-%--------------------------------------------------------------------------------------------------------
-% Compute the Smagorinsky constant by a dynamic model
-% See "Evaluation of explicit and implicit LES closures for Burgers turbulence"
-% by R. Maulik and O. San, Journal of Computational and Applied Mathematics 327 (2018) 12-40
-   u_filter = apply_filter(Un ,ind,filter,alpha,mat_alpha) ;
-   L        = apply_filter(Un.*Un ,ind,filter,alpha,mat_alpha) - u_filter.*u_filter ;
-
-   deriv_u  =  get_first_derivative(Un,ind(:,4:6),h);
-%   deriv_u_filter = apply_filter(deriv_u,ind,filter,alpha,mat_alpha);
-   deriv_u_filter = get_first_derivative(u_filter,ind(:,4:6),h);
-
-   M = kappa*kappa* deriv_u_filter.*abs(deriv_u_filter) - apply_filter( deriv_u .*abs(deriv_u) ,ind,filter,alpha,mat_alpha) ;
-
-   csdsq = 0.5 * sum(L.*M) / sum(M.*M); % (Cs * Delta)^2
-   dynamic_sub = sqrt(abs(csdsq)) / h ;
 end
